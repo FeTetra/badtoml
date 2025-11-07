@@ -1,0 +1,10 @@
+# Executable
+*.out
+*.exe
+
+# C Main
+main.c
+
+# Scripts
+*.sh
+
