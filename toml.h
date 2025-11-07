@@ -4,11 +4,51 @@ struct TOMLEntry {
     char Section[32];
     char Key[32];
     union {
-        long long IntVal;
-        int BoolVal;
         char StrVal[64];
+        int BoolVal;
+        long long IntVal;
     } Value;
 };
+
+/* Helper functions */
+
+int IsAlphaNumeric(char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+}
+int IsASCIISymbol(char c) {
+    return (c >= ' ' && c <= '~');
+}
+int IsWhiteSpace(char c) {
+    return (c == ' ' || c == '\n');
+}
+
+char ToUpper(char c) {
+    if (c >= 'a' && c <= 'z') {
+        return c - 32; // Distance between upper and lowercase variant in ASCII table
+    }
+    return c;
+}
+
+char *NextLine(char *p) {
+    while (*p++ != '\n');
+    return p;
+}
+
+int StrLen(char *str) {
+    int i = 0;
+    while (str[i] != '\0') {
+        i++;
+    }
+    return i;
+}
+
+int StrContains(char *target, char *contains) {
+    int i = 0;
+    while (target[i] == contains[i] && contains[i] != '\0') {
+        i++;
+    }
+    return (i == StrLen(contains));
+}
 
 /* Type (de)serialization */
 
@@ -66,6 +106,9 @@ long long StrToInt(char *str, int base) {
         sign = 1;
         p++;
     }
+    if (*p == '+') {
+        p++;
+    }
 
     // We cannot assume we can skip two chars here because the number could be little endian
     if (*p == '0') {
@@ -81,7 +124,7 @@ long long StrToInt(char *str, int base) {
     long long result = 0;
     while (*p) {
         for (int i = 0; i < base; i++) {
-            if (*p == "0123456789ABCDEF"[i]) {
+            if (ToUpper(*p) == "0123456789ABCDEF"[i]) {
                 result = result * base + i;
                 break;
             }
@@ -92,17 +135,7 @@ long long StrToInt(char *str, int base) {
     return result * (!sign ? 1 : -1);
 }
 
-int IsAlphaNumeric(char c) {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
-}
-int IsWhiteSpace(char c) {
-    return (c == ' ' || c == '\n');
-}
-
-char *NextLine(char *p) {
-    while (*p++ != '\n');
-    return p;
-}
+/* TOML Parsing */
 
 int TOMLCopySection(char *p, struct TOMLEntry *entry) {
     if (*p != '[') {
@@ -133,22 +166,71 @@ int TOMLCopyKey(char *p, struct TOMLEntry *entry) {
         }
         entry->Key[i] = *p;
         i++;
-        p++;
+        *p++;
     }
     entry->Key[i] = '\0';
 
     return 1;
 }
 
+int TOMLParseValue(char *p, struct TOMLEntry *entry) {
+    while (IsWhiteSpace(*p)) p++; // Skip whitespace
+    if (*p != '=') {
+        return 0; // Not a value
+    }
+    while (IsWhiteSpace(*++p)); // More whitespace 
+
+    // Parse double quote string
+    if (*p == '\"') {
+        p++;
+        int i = 0;
+        while (IsASCIISymbol(p[i]) && i < sizeof(entry->Value.StrVal) - 1 && p[i] != '\"') {
+            entry->Value.StrVal[i] = p[i];
+            i++;
+        }
+        return 1; // Might want some error handling
+    }
+
+    // Parse bool
+    if (StrContains(p, "true")) {
+        entry->Value.BoolVal = 1;
+        return 1;
+    } else if (StrContains(p, "false")) {
+        entry->Value.BoolVal = 0;
+        return 1;
+    }
+
+    // Parse int
+    if (StrContains(p, "0b")) {
+        entry->Value.IntVal = StrToInt(p, 2); // Binary
+        return 1;
+    }
+    if (StrContains(p, "0o")) {
+        entry->Value.IntVal = StrToInt(p, 8); // Octal
+        return 1;
+    }
+    if (StrContains(p, "0x")) {
+        entry->Value.IntVal = StrToInt(p, 16); // Hexadecimal
+        return 1;
+    }
+    entry->Value.IntVal = StrToInt(p, 10); // Decimal
+    return 1; // Just assume its a base 10 int and return, other types have yet to be implemented
+}
+
 int TOMLDeserializeEntry(char *line, struct TOMLEntry *entry) {
     char *p = line;
     while (IsWhiteSpace(*p)) p++; // Skip whitespace
-
     if (*p == '[') {
         return 2; // Skip section headers
     }
 
-    TOMLCopyKey(p, entry);
+    if (!TOMLCopyKey(p, entry)) {
+        return 0;
+    }
+    while (IsAlphaNumeric(*p++));
+    if (!TOMLParseValue(p, entry)) {
+        return 0;
+    }
 
     return 1;
 }
