@@ -201,15 +201,19 @@ int TOMLParseValue(char *p, struct TOMLEntry *entry) {
     }
 
     // Parse int
-    if (StrContains(p, "0b")) {
+    int hasSign = 0;
+    if (*p == '-' || *p == '+') {
+        hasSign = 1;
+    }
+    if (StrContains(p + hasSign, "0b")) {
         entry->Value.IntVal = StrToInt(p, 2); // Binary
         return 1;
     }
-    if (StrContains(p, "0o")) {
+    if (StrContains(p + hasSign, "0o")) {
         entry->Value.IntVal = StrToInt(p, 8); // Octal
         return 1;
     }
-    if (StrContains(p, "0x")) {
+    if (StrContains(p + hasSign, "0x")) {
         entry->Value.IntVal = StrToInt(p, 16); // Hexadecimal
         return 1;
     }
