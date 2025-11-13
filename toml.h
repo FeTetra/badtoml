@@ -29,9 +29,13 @@ char ToUpper(char c) {
     return c;
 }
 
-char *NextLine(char *p) {
-    while (*p++ != '\n');
-    return p;
+void NextLine(char **p) {
+    while (**p != '\0' && **p != '\n') {
+        (*p)++;
+    }
+    if (**p == '\n') {
+        (*p)++;
+    }
 }
 
 int StrLen(char *str) {
@@ -55,7 +59,7 @@ int StrContains(char *target, char *contains) {
 // This works exclusively with integral values, as it takes advantage of integer arithmetic
 // Note: at the moment this only outputs big endian
 int IntToStr(char *buf, int bufSize, unsigned long long n, int sign, int base) {
-    if (base < 2 || base > 16 || base % 2) {
+    if (base < 2 || base > 16 || base % 2 != 0) {
         return 0; // Fail, unsupported base
     }
 
@@ -94,31 +98,15 @@ int UIntToStr(char *buf, int bufSize, unsigned long long n, int base) {
 }
 
 int SIntToStr(char *buf, int bufSize, long long n, int base) {
-    IntToStr(buf, bufSize, (n < 0) ? -n : n, (n < 0), base); // arg 2 is absolute value
+    IntToStr(buf, bufSize, (n < 0) ? -n : n, (n < 0), base); // arg 3 is absolute value
 }
 
-long long StrToInt(char *str, int base) {
+// TODO: Error handling PLEASE
+long long StrToInt(char *str, int sign, int base) {
     char *p = str;
 
-    // Check for any prefixing
-    int sign = 0;
-    if (*p == '-') {
-        sign = 1;
-        p++;
-    }
-    if (*p == '+') {
-        p++;
-    }
-
-    // We cannot assume we can skip two chars here because the number could be little endian
-    if (*p == '0') {
-        char prefix[3] = {'b', 'o', 'x'};
-        for (int i = 0; i < sizeof(prefix); i++) {
-            if (*(p + 1) == prefix[i]) {
-                p += 2;
-                break;
-            }
-        }
+    if (base < 2 || base > 16 || base % 2 != 0) {
+        return 0; // Fail, unsupported base
     }
 
     long long result = 0;
@@ -202,22 +190,26 @@ int TOMLParseValue(char *p, struct TOMLEntry *entry) {
 
     // Parse int
     int hasSign = 0;
-    if (*p == '-' || *p == '+') {
+    if (*p == '-') {
         hasSign = 1;
+        p++;
     }
-    if (StrContains(p + hasSign, "0b")) {
-        entry->Value.IntVal = StrToInt(p, 2); // Binary
+    if (StrContains(p, "0b")) {
+        p += 2;
+        entry->Value.IntVal = StrToInt(p, hasSign, 2); // Binary
         return 1;
     }
-    if (StrContains(p + hasSign, "0o")) {
-        entry->Value.IntVal = StrToInt(p, 8); // Octal
+    if (StrContains(p, "0o")) {
+        p += 2;
+        entry->Value.IntVal = StrToInt(p, hasSign, 8); // Octal
         return 1;
     }
-    if (StrContains(p + hasSign, "0x")) {
-        entry->Value.IntVal = StrToInt(p, 16); // Hexadecimal
+    if (StrContains(p, "0x")) {
+        p += 2;
+        entry->Value.IntVal = StrToInt(p, hasSign, 16); // Hexadecimal
         return 1;
     }
-    entry->Value.IntVal = StrToInt(p, 10); // Decimal
+    entry->Value.IntVal = StrToInt(p, hasSign, 10); // Decimal
     return 1; // Just assume its a base 10 int and return, other types have yet to be implemented
 }
 
