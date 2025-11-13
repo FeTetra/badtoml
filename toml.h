@@ -12,8 +12,16 @@ struct TOMLEntry {
 
 /* Helper functions */
 
+int IsNumeric(char c) {
+    return (c >= '-' && c <= '9');
+}
+
+int IsAlpha(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
 int IsAlphaNumeric(char c) {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+    return IsAlpha(c) || IsNumeric(c);
 }
 int IsASCIISymbol(char c) {
     return (c >= ' ' && c <= '~');
@@ -27,6 +35,22 @@ char ToUpper(char c) {
         return c - 32; // Distance between upper and lowercase variant in ASCII table
     }
     return c;
+}
+
+double PowerD (double x, int y)
+{
+    double temp;
+    if (y == 0)
+    return 1;
+    temp = PowerD (x, y / 2);
+    if ((y % 2) == 0) {
+        return temp * temp;
+    } else {
+        if (y > 0)
+            return x * temp * temp;
+        else
+            return (temp * temp) / x;
+    }
 }
 
 void NextLine(char **p) {
@@ -99,6 +123,26 @@ int UIntToStr(char *buf, int bufSize, unsigned long long n, int base) {
 
 int SIntToStr(char *buf, int bufSize, long long n, int base) {
     IntToStr(buf, bufSize, (n < 0) ? -n : n, (n < 0), base); // arg 3 is absolute value
+}
+
+int FloatToStr(char *buf, int bufSize, float n, int round) {
+    char *p = buf;
+
+    int sign = 0;
+
+    long long iPart = (long long)n;
+    IntToStr(p, bufSize, iPart, (n < 0), 10); // Always use base 10?
+    while (IsNumeric(*++p)); // Skip to end of added data
+    double fPart = n - (double)iPart;
+
+    if (round != 0) {
+        *p++ = '.';
+        fPart = fPart * PowerD(10, round);
+        // Just realized that passing bufSize like this is really stupid, fix later
+        UIntToStr(p, bufSize, (long long)fPart, 10); // TODO: actually write slightly safe code
+    }
+
+    return 1;
 }
 
 // TODO: Error handling PLEASE
