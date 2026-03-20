@@ -1,277 +1,249 @@
-/* Type definitions */
+#include <stdio.h>
+
+#include "helper.h"
+
+#define MAX_SECTION_SIZE 64
+#define MAX_KEY_SIZE 64
+#define MAX_VALUE_SIZE 64 // For string values
 
 struct TOMLEntry {
-    char Section[32];
-    char Key[32];
+    char section[MAX_SECTION_SIZE];
+    char key[MAX_KEY_SIZE];
+
+    int valueType;
     union {
-        char StrVal[64];
-        int BoolVal;
-        long long IntVal;
-    } Value;
+        char strVal[MAX_VALUE_SIZE];
+        int boolVal;
+        long long intVal;
+        double floatVal;
+    } value;
 };
 
-/* Helper functions */
+enum TOMLErrno {
+    TOML_SUCCESS,
+    TOML_PARSE_COMMENT,
+    TOML_PARSE_SECTION,
+    TOML_PARSE_FAIL,
+    //...
+};
 
-int IsNumeric(char c) {
-    return (c >= '-' && c <= '9');
-}
+enum TOMLValueType {
+    TOML_INT,
+    TOML_INT_BIN,
+    TOML_INT_OCT,
+    TOML_INT_HEX,
+    TOML_BOOL,
+    TOML_FLOAT,
+    TOML_STRING,
+    TOML_STRING_LITERAL,
+    TOML_INVALID,
+    //...
+};
 
-int IsAlpha(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-}
+/* Parsing */
 
-int IsAlphaNumeric(char c) {
-    return IsAlpha(c) || IsNumeric(c);
-}
-int IsASCIISymbol(char c) {
-    return (c >= ' ' && c <= '~');
-}
-int IsWhiteSpace(char c) {
-    return (c == ' ' || c == '\n');
-}
+// TODO: Return struct results for error handling
 
-char ToUpper(char c) {
-    if (c >= 'a' && c <= 'z') {
-        return c - 32; // Distance between upper and lowercase variant in ASCII table
-    }
-    return c;
-}
-
-double PowerD (double x, int y)
-{
-    double temp;
-    if (y == 0)
-    return 1;
-    temp = PowerD (x, y / 2);
-    if ((y % 2) == 0) {
-        return temp * temp;
-    } else {
-        if (y > 0)
-            return x * temp * temp;
-        else
-            return (temp * temp) / x;
-    }
-}
-
-void NextLine(char **p) {
-    while (**p != '\0' && **p != '\n') {
-        (*p)++;
-    }
-    if (**p == '\n') {
-        (*p)++;
-    }
-}
-
-int StrLen(char *str) {
+int TOMLParseKey(char *key, int size, struct TOMLEntry *entry) {
     int i = 0;
-    while (str[i] != '\0') {
+
+    while(i < size && IsAlpha(key[i])) {
+        if (i < MAX_KEY_SIZE) {
+            entry->key[i] = key[i]; // Copy key to buffer
+        }
+
         i++;
     }
+
     return i;
 }
 
-int StrContains(char *target, char *contains) {
+int TOMLGetValueType(char *value, int size) {
     int i = 0;
-    while (target[i] == contains[i] && contains[i] != '\0') {
-        i++;
-    }
-    return (i == StrLen(contains));
-}
 
-/* Type (de)serialization */
-
-// This works exclusively with integral values, as it takes advantage of integer arithmetic
-// Note: at the moment this only outputs big endian
-int IntToStr(char *buf, int bufSize, unsigned long long n, int sign, int base) {
-    if (base < 2 || base > 16 || base % 2 != 0) {
-        return 0; // Fail, unsupported base
-    }
-
-    // Theres probably a more elegant way to do this but idec
-    char prefix = (base == 2) ? 'b' : (base == 8) ? 'o' : (base == 16) ? 'x' : '\0';
-    
-    int i = bufSize - 1;
-    int j = 0;
-
-    while (n > 0) {
-        buf[i] = "0123456789ABCDEF"[n % base];
-        i--;
-        n = n / base;
-    }
-
-    if (sign) {
-        buf[j] = '-';
-        j++;
-    }
-
-    if (prefix) {
-        buf[j] = '0';
-        buf[j + 1] = prefix;
-        j += 2;
-    }
-
-    // Reverse buffer
-    while(i++ < bufSize + 1) {
-        buf[j++] = buf[i];
-    }
-    buf[j] = 0; // Terminate
-}
-
-int UIntToStr(char *buf, int bufSize, unsigned long long n, int base) {
-    IntToStr(buf, bufSize, n, 0, base);
-}
-
-int SIntToStr(char *buf, int bufSize, long long n, int base) {
-    IntToStr(buf, bufSize, (n < 0) ? -n : n, (n < 0), base); // arg 3 is absolute value
-}
-
-int FloatToStr(char *buf, int bufSize, float n, int round) {
-    char *p = buf;
-
-    int sign = 0;
-
-    long long iPart = (long long)n;
-    IntToStr(p, bufSize, iPart, (n < 0), 10); // Always use base 10?
-    while (IsNumeric(*++p)); // Skip to end of added data
-    double fPart = n - (double)iPart;
-
-    if (round != 0) {
-        *p++ = '.';
-        fPart = fPart * PowerD(10, round);
-        // Just realized that passing bufSize like this is really stupid, fix later
-        UIntToStr(p, bufSize, (long long)fPart, 10); // TODO: actually write slightly safe code
-    }
-
-    return 1;
-}
-
-// TODO: Error handling PLEASE
-long long StrToInt(char *str, int sign, int base) {
-    char *p = str;
-
-    if (base < 2 || base > 16 || base % 2 != 0) {
-        return 0; // Fail, unsupported base
-    }
-
-    long long result = 0;
-    while (*p) {
-        for (int i = 0; i < base; i++) {
-            if (ToUpper(*p) == "0123456789ABCDEF"[i]) {
-                result = result * base + i;
-                break;
+    if (value[i] == '\"') {
+        while (i++ < size) {
+            if (value[i] == '\"') {
+                if (!IsWhiteSpace(value[++i]) && value[i] != '\0') {
+                    return TOML_INVALID;
+                }
+                return TOML_STRING;
             }
         }
-        p++;
+
+        return TOML_INVALID;
+    }
+    if (value[i] == '\'') {
+        while (i++ < size) {
+            if (value[i] == '\'') {
+                if (!IsWhiteSpace(value[++i]) && value[i] != '\0') {
+                    return TOML_INVALID;
+                }
+                return TOML_STRING_LITERAL;
+            }
+        }
+
+        return TOML_INVALID;
     }
 
-    return result * (!sign ? 1 : -1);
-}
-
-/* TOML Parsing */
-
-int TOMLCopySection(char *p, struct TOMLEntry *entry) {
-    if (*p != '[') {
-        return 0; // Make sure were in a TOML section
-    }
-
-    int i = 0;
-    while (*++p != ']' && i < sizeof(entry->Section)) {
-        if (*p == '\n') {
-            break; // Done reading
-        }
-        if (!IsAlphaNumeric(*p)) {
-            return 0; // Parse error
-        }
-        entry->Section[i] = *p;
+    if (value[i] == '-' || value[i] == '+') {
         i++;
     }
-    entry->Section[i] = '\0';
+    if (IsNumeric(value[i])) {
+        int decimalCount = 0;
+        int intType = TOML_INT;
 
-    return 1;
-}
-
-int TOMLCopyKey(char *p, struct TOMLEntry *entry) {
-    int i = 0;
-    while (*p != ' ') {
-        if (!IsAlphaNumeric(*p)) {
-            return 0; // Parsing error
+        if (!IsNumeric(value[i + 1])) {
+            switch (value[i + 1]) {
+                case 'b':
+                    intType = TOML_INT_BIN;
+                    i += 2;
+                    break;
+                case 'o':
+                    intType = TOML_INT_OCT;
+                    i += 2;
+                    break;
+                case 'x':
+                    intType = TOML_INT_HEX;
+                    i += 2;
+                    break;
+            }
         }
-        entry->Key[i] = *p;
-        i++;
-        *p++;
-    }
-    entry->Key[i] = '\0';
+        
+        while (i < size) {
+            if (!IsNumeric(value[i])) {
+                if (value[i] == '.' && intType == TOML_INT) {
+                    decimalCount++;
+                    i++;
+                    continue;
+                } else if (IsWhiteSpace(value[i]) || value[i] == '\0') {
+                    break; 
+                }
 
-    return 1;
-}
-
-int TOMLParseValue(char *p, struct TOMLEntry *entry) {
-    while (IsWhiteSpace(*p)) p++; // Skip whitespace
-    if (*p != '=') {
-        return 0; // Not a value
-    }
-    while (IsWhiteSpace(*++p)); // More whitespace 
-
-    // Parse double quote string
-    if (*p == '\"') {
-        p++;
-        int i = 0;
-        while (IsASCIISymbol(p[i]) && i < sizeof(entry->Value.StrVal) - 1 && p[i] != '\"') {
-            entry->Value.StrVal[i] = p[i];
+                return TOML_INVALID;
+            }
             i++;
         }
-        return 1; // Might want some error handling
+
+        if (i < size) {
+            if (decimalCount == 1) {
+                return TOML_FLOAT;
+            } else if (decimalCount == 0) {
+                return intType;
+            }
+        }
+
+        return TOML_INVALID;
     }
 
-    // Parse bool
-    if (StrContains(p, "true")) {
-        entry->Value.BoolVal = 1;
-        return 1;
-    } else if (StrContains(p, "false")) {
-        entry->Value.BoolVal = 0;
-        return 1;
+    if (StrCmp(value, size, "true", 4) || StrCmp(value, size, "false", 5)) {
+        return TOML_BOOL; // StrCmp checks if the string ends with whitespace
     }
 
-    // Parse int
-    int hasSign = 0;
-    if (*p == '-') {
-        hasSign = 1;
-        p++;
-    }
-    if (StrContains(p, "0b")) {
-        p += 2;
-        entry->Value.IntVal = StrToInt(p, hasSign, 2); // Binary
-        return 1;
-    }
-    if (StrContains(p, "0o")) {
-        p += 2;
-        entry->Value.IntVal = StrToInt(p, hasSign, 8); // Octal
-        return 1;
-    }
-    if (StrContains(p, "0x")) {
-        p += 2;
-        entry->Value.IntVal = StrToInt(p, hasSign, 16); // Hexadecimal
-        return 1;
-    }
-    entry->Value.IntVal = StrToInt(p, hasSign, 10); // Decimal
-    return 1; // Just assume its a base 10 int and return, other types have yet to be implemented
+    return TOML_INVALID;
 }
 
-int TOMLDeserializeEntry(char *line, struct TOMLEntry *entry) {
-    char *p = line;
-    while (IsWhiteSpace(*p)) p++; // Skip whitespace
-    if (*p == '[') {
-        return 2; // Skip section headers
-    }
+int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
+    int i = 0;
 
-    if (!TOMLCopyKey(p, entry)) {
-        return 0;
+    switch (entry->valueType) {
+        case TOML_INT:
+            entry->value.intVal = StrToInt(value, size, 10);
+            break;
+        case TOML_INT_BIN:
+            entry->value.intVal = StrToInt(&value[i], size, 2);
+            break;
+        case TOML_INT_OCT:
+            entry->value.intVal = StrToInt(&value[i], size, 8);
+            break;
+        case TOML_INT_HEX:
+            entry->value.intVal = StrToInt(&value[i], size, 16);
+            break;
+        case TOML_BOOL:
+            entry->value.boolVal = StrCmp(value, size, "true", 4); // Assume its false if it's bool type and not true
+            break;
+        case TOML_FLOAT:
+            entry->value.floatVal = StrToFloat(value, size);
+            break;
+        case TOML_STRING:
+            while (++i < MAX_VALUE_SIZE && i < size && value[i] != '\"') {
+                entry->value.strVal[i - 1] = value[i];
+            }
+            entry->value.strVal[i + 1] = '\0';
+            break;
+        case TOML_STRING_LITERAL: // Need to actually make a distinction between strings and string literals
+            while (++i < MAX_VALUE_SIZE && i < size && value[i] != '\'') {
+                entry->value.strVal[i - 1] = value[i];
+            }
+            entry->value.strVal[i + 1] = '\0';
+            break;
     }
-    while (IsAlphaNumeric(*p++));
-    if (!TOMLParseValue(p, entry)) {
-        return 0;
-    }
-
-    return 1;
+    
+    return TOML_SUCCESS;
 }
 
+int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
+    int i = 0;
+
+    i += SkipWhitespace(&line[i], (size - i)); 
+ 
+    i += TOMLParseKey(&line[i], (size - i), entry);
+ 
+    i += SkipWhitespace(&line[i], (size - i));
+
+    if (line[i++] != '=') {
+        return TOML_PARSE_FAIL; // No value
+    }
+
+    i += SkipWhitespace(&line[i], (size - i));
+
+    // Parse value
+    
+    entry->valueType = TOMLGetValueType(&line[i], (size - i));
+
+    if (entry->valueType == TOML_INVALID) {
+        return TOML_PARSE_FAIL;
+    }
+
+    if (TOMLParseValue(&line[i], (size - i), entry) != TOML_SUCCESS) {
+        return TOML_PARSE_FAIL;
+    }
+    
+    return TOML_SUCCESS;
+}
+
+int TOMLParseLine(char *line, int size, struct TOMLEntry *entry) {
+    int i = SkipWhitespace(line, size);
+
+    if (line[i] == '#') {
+        return TOML_PARSE_COMMENT;
+    }
+    if (line[i] == '[') {
+        return TOML_PARSE_SECTION;
+    }
+
+    return TOMLParseKeyValue(line, size, entry);
+}
+
+int TOMLParseSection(char *line, int size, char *buf) {
+    int i = SkipWhitespace(line, size);
+
+    if (line[i] != '[') {
+        return TOML_PARSE_FAIL;
+    }
+
+    int j = 0;
+    while (i++ < size) {
+        if (line[i] == ']') {
+            if (i <= 1) {
+                return TOML_PARSE_FAIL;
+            }
+            buf[j] = '\0';
+            return TOML_SUCCESS;
+        }
+
+        buf[j++] = line[i];
+    }
+
+    return TOML_PARSE_FAIL;
+}
