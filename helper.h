@@ -214,3 +214,37 @@ double StrToFloat(char *buf, int bufSize)
     return sign * (before + after / scale);
 }
 
+int NextLine(char *buf, int size) {
+    int i = 0;
+
+    while (i < size) {
+        if (buf[i] == '\n') {
+            return i + 1;
+        } else if (buf[i] == '\r') {
+            if (i + 1 == '\n') {
+                return i + 2;
+            } else {
+                return i + 1; // Might as well return, only using cr has technically existed
+            }
+        }
+        i++;
+    }
+
+    return 0;
+}
+
+int MemCpy(char *source, int sourceSize, char *target, int targetSize) {
+    int i = 0;
+
+    if (sourceSize > targetSize) {
+        return 0;
+    }
+
+    while (i < sourceSize) {
+        target[i] = source[i];
+        i++;
+    }
+
+    return 1;
+}
+

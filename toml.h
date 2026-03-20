@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "helper.h"
 
 #define MAX_SECTION_SIZE 64
@@ -42,7 +40,8 @@ enum TOMLValueType {
 
 /* Parsing */
 
-// TODO: Return struct results for error handling
+// TODO: Make this function return an error instead of i, we can skip the data this reads later anyways
+// TODO: Make this use MemCpy or StrCpy function
 
 int TOMLParseKey(char *key, int size, struct TOMLEntry *entry) {
     int i = 0;
@@ -55,6 +54,7 @@ int TOMLParseKey(char *key, int size, struct TOMLEntry *entry) {
         i++;
     }
 
+    entry->key[i] = '\0';
     return i;
 }
 
@@ -151,13 +151,13 @@ int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
             entry->value.intVal = StrToInt(value, size, 10);
             break;
         case TOML_INT_BIN:
-            entry->value.intVal = StrToInt(&value[i], size, 2);
+            entry->value.intVal = StrToInt(value, size, 2);
             break;
         case TOML_INT_OCT:
-            entry->value.intVal = StrToInt(&value[i], size, 8);
+            entry->value.intVal = StrToInt(value, size, 8);
             break;
         case TOML_INT_HEX:
-            entry->value.intVal = StrToInt(&value[i], size, 16);
+            entry->value.intVal = StrToInt(value, size, 16);
             break;
         case TOML_BOOL:
             entry->value.boolVal = StrCmp(value, size, "true", 4); // Assume its false if it's bool type and not true
@@ -169,13 +169,13 @@ int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
             while (++i < MAX_VALUE_SIZE && i < size && value[i] != '\"') {
                 entry->value.strVal[i - 1] = value[i];
             }
-            entry->value.strVal[i + 1] = '\0';
+            entry->value.strVal[i - 1] = '\0';
             break;
         case TOML_STRING_LITERAL: // Need to actually make a distinction between strings and string literals
             while (++i < MAX_VALUE_SIZE && i < size && value[i] != '\'') {
                 entry->value.strVal[i - 1] = value[i];
             }
-            entry->value.strVal[i + 1] = '\0';
+            entry->value.strVal[i - 1] = '\0';
             break;
     }
     
@@ -188,7 +188,7 @@ int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
     i += SkipWhitespace(&line[i], (size - i)); 
  
     i += TOMLParseKey(&line[i], (size - i), entry);
- 
+
     i += SkipWhitespace(&line[i], (size - i));
 
     if (line[i++] != '=') {
@@ -196,33 +196,19 @@ int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
     }
 
     i += SkipWhitespace(&line[i], (size - i));
-
-    // Parse value
-    
+ 
     entry->valueType = TOMLGetValueType(&line[i], (size - i));
 
     if (entry->valueType == TOML_INVALID) {
         return TOML_PARSE_FAIL;
     }
 
-    if (TOMLParseValue(&line[i], (size - i), entry) != TOML_SUCCESS) {
+    int remaining = NextLine(&line[i], (size - i)); // Only read whats left on this line for extra safety here
+    if (TOMLParseValue(&line[i], remaining, entry) != TOML_SUCCESS) {
         return TOML_PARSE_FAIL;
     }
     
     return TOML_SUCCESS;
-}
-
-int TOMLParseLine(char *line, int size, struct TOMLEntry *entry) {
-    int i = SkipWhitespace(line, size);
-
-    if (line[i] == '#') {
-        return TOML_PARSE_COMMENT;
-    }
-    if (line[i] == '[') {
-        return TOML_PARSE_SECTION;
-    }
-
-    return TOMLParseKeyValue(line, size, entry);
 }
 
 int TOMLParseSection(char *line, int size, char *buf) {
@@ -247,3 +233,48 @@ int TOMLParseSection(char *line, int size, char *buf) {
 
     return TOML_PARSE_FAIL;
 }
+
+int TOMLParseLine(char *line, int size, struct TOMLEntry *entry) {
+    int i = SkipWhitespace(line, size);
+
+    if (line[i] == '#') {
+        return TOML_PARSE_COMMENT;
+    }
+    if (line[i] == '[') {
+        return TOML_PARSE_SECTION;
+    }
+
+    return TOMLParseKeyValue(line, size, entry);
+}
+
+int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count) {
+    int i = 0;
+    int j = 0;
+    int result = TOML_SUCCESS;
+    char currentSection[MAX_SECTION_SIZE] = "root";
+
+    while (i < size && j < count) {
+        int error = TOMLParseLine(&file[i], size, &entries[j]);
+
+        switch (error) {
+            case TOML_SUCCESS:
+                MemCpy(currentSection, MAX_SECTION_SIZE, entries[j].section, MAX_SECTION_SIZE);
+                j++;
+                break;
+            case TOML_PARSE_COMMENT:
+                break;
+            case TOML_PARSE_SECTION:
+                TOMLParseSection(&file[i], size, currentSection);
+                break;
+            case TOML_PARSE_FAIL:
+                result = TOML_PARSE_FAIL;
+                break;
+        }
+
+        i += NextLine(&file[i], (size - i));
+    }
+
+    return result;
+}
+
+
