@@ -5,6 +5,9 @@
 # C Main
 main.c
 
+# TOML Files
+*.toml
+
 # Scripts
 *.sh
 

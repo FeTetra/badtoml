@@ -118,6 +118,9 @@ int TOMLGetValueType(char *value, int size) {
                     continue;
                 } else if (IsWhiteSpace(value[i]) || value[i] == '\0') {
                     break; 
+                } else if (intType == TOML_INT_HEX && IsNumericHex(value[i])) {
+                    i++;
+                    continue;
                 }
 
                 return TOML_INVALID;
@@ -202,9 +205,8 @@ int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
     if (entry->valueType == TOML_INVALID) {
         return TOML_PARSE_FAIL;
     }
-
-    int remaining = NextLine(&line[i], (size - i)); // Only read whats left on this line for extra safety here
-    if (TOMLParseValue(&line[i], remaining, entry) != TOML_SUCCESS) {
+ 
+    if (TOMLParseValue(&line[i], (size - i), entry) != TOML_SUCCESS) {
         return TOML_PARSE_FAIL;
     }
     
@@ -250,11 +252,14 @@ int TOMLParseLine(char *line, int size, struct TOMLEntry *entry) {
 int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count) {
     int i = 0;
     int j = 0;
+    int remaining = 0;
     int result = TOML_SUCCESS;
     char currentSection[MAX_SECTION_SIZE] = "root";
 
     while (i < size && j < count) {
-        int error = TOMLParseLine(&file[i], size, &entries[j]);
+        remaining = NextLine(&file[i], (size - i));
+
+        int error = TOMLParseLine(&file[i], remaining, &entries[j]);
 
         switch (error) {
             case TOML_SUCCESS:
@@ -271,7 +276,7 @@ int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count)
                 break;
         }
 
-        i += NextLine(&file[i], (size - i));
+        i += (SkipWhitespace(&file[i + remaining], (size - i)) + remaining); // Slight hack, should get around multiple newlines
     }
 
     return result;

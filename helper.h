@@ -7,6 +7,10 @@ int IsNumeric(char c) {
     return (c >= '0' && c <= '9');
 }
 
+int IsNumericHex(char c) {
+    return ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
+}
+
 int IsAlpha(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
