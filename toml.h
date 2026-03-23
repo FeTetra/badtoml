@@ -40,6 +40,29 @@ enum TOMLValueType {
 
 /* Parsing */
 
+int TOMLParseSection(char *line, int size, char *buf) {
+    int i = SkipWhitespace(line, size);
+
+    if (line[i] != '[') {
+        return TOML_PARSE_FAIL;
+    }
+
+    int j = 0;
+    while (i++ < size) {
+        if (line[i] == ']') {
+            if (i <= 1) {
+                return TOML_PARSE_FAIL;
+            }
+            buf[j] = '\0';
+            return TOML_SUCCESS;
+        }
+
+        buf[j++] = line[i];
+    }
+
+    return TOML_PARSE_FAIL;
+}
+
 // TODO: Make this function return an error instead of i, we can skip the data this reads later anyways
 // TODO: Make this use MemCpy or StrCpy function
 
@@ -60,38 +83,33 @@ int TOMLParseKey(char *key, int size, struct TOMLEntry *entry) {
 
 int TOMLGetValueType(char *value, int size) {
     int i = 0;
+    int result = TOML_INVALID;
 
-    if (value[i] == '\"') {
-        while (i++ < size) {
+    if (value[0] == '\"') {
+        while (++i < size) {
             if (value[i] == '\"') {
-                if (!IsWhiteSpace(value[++i]) && value[i] != '\0') {
-                    return TOML_INVALID;
-                }
-                return TOML_STRING;
+                result = TOML_STRING;
+                i++;
+                break;
             }
         }
-
-        return TOML_INVALID;
     }
-    if (value[i] == '\'') {
-        while (i++ < size) {
+
+    if (value[0] == '\'') {
+        while (++i < size) {
             if (value[i] == '\'') {
-                if (!IsWhiteSpace(value[++i]) && value[i] != '\0') {
-                    return TOML_INVALID;
-                }
-                return TOML_STRING_LITERAL;
+                result = TOML_STRING_LITERAL;
+                i++;
+                break;
             }
         }
-
-        return TOML_INVALID;
     }
 
-    if (value[i] == '-' || value[i] == '+') {
-        i++;
-    }
-    if (IsNumeric(value[i])) {
+    int skip = (value[0] == '-' || value[0] == '+');
+    if (IsNumeric(value[skip])) { 
         int decimalCount = 0;
         int intType = TOML_INT;
+        i += skip;
 
         if (!IsNumeric(value[i + 1])) {
             switch (value[i + 1]) {
@@ -116,34 +134,45 @@ int TOMLGetValueType(char *value, int size) {
                     decimalCount++;
                     i++;
                     continue;
-                } else if (IsWhiteSpace(value[i]) || value[i] == '\0') {
-                    break; 
                 } else if (intType == TOML_INT_HEX && IsNumericHex(value[i])) {
                     i++;
                     continue;
-                }
+                } else if (IsWhiteSpace(value[i]) || value[i] == '\0') {
+                    break; 
+                } 
 
-                return TOML_INVALID;
+                result = TOML_INVALID;
+                break;
             }
             i++;
         }
 
-        if (i < size) {
+        if (i <= size) {
             if (decimalCount == 1) {
-                return TOML_FLOAT;
+                result = TOML_FLOAT;
             } else if (decimalCount == 0) {
-                return intType;
+                result = intType;
             }
         }
-
-        return TOML_INVALID;
     }
 
-    if (StrCmp(value, size, "true", 4) || StrCmp(value, size, "false", 5)) {
-        return TOML_BOOL; // StrCmp checks if the string ends with whitespace
+    if (StrCmp(value, size, "true", 4)) {
+        i += 5;
+        result = TOML_BOOL;
+    } else if (StrCmp(value, size, "false", 5)) {
+        i += 6;
+        result = TOML_BOOL;
     }
 
-    return TOML_INVALID;
+    while (i < size && result != TOML_INVALID) {
+        if (!IsWhiteSpace(value[i]) && value[i] != '\0') {
+            result = TOML_INVALID;
+            return result;
+        }
+        i++;
+    }
+
+    return result;
 }
 
 int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
@@ -181,7 +210,7 @@ int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
             entry->value.strVal[i - 1] = '\0';
             break;
     }
-    
+
     return TOML_SUCCESS;
 }
 
@@ -190,7 +219,7 @@ int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
 
     i += SkipWhitespace(&line[i], (size - i)); 
  
-    i += TOMLParseKey(&line[i], (size - i), entry);
+    i += TOMLParseKey(&line[i], (size - i), entry); 
 
     i += SkipWhitespace(&line[i], (size - i));
 
@@ -211,29 +240,6 @@ int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
     }
     
     return TOML_SUCCESS;
-}
-
-int TOMLParseSection(char *line, int size, char *buf) {
-    int i = SkipWhitespace(line, size);
-
-    if (line[i] != '[') {
-        return TOML_PARSE_FAIL;
-    }
-
-    int j = 0;
-    while (i++ < size) {
-        if (line[i] == ']') {
-            if (i <= 1) {
-                return TOML_PARSE_FAIL;
-            }
-            buf[j] = '\0';
-            return TOML_SUCCESS;
-        }
-
-        buf[j++] = line[i];
-    }
-
-    return TOML_PARSE_FAIL;
 }
 
 int TOMLParseLine(char *line, int size, struct TOMLEntry *entry) {
@@ -257,6 +263,7 @@ int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count)
     char currentSection[MAX_SECTION_SIZE] = "root";
 
     while (i < size && j < count) {
+        i += SkipWhitespace(&file[i], (size - i));
         remaining = NextLine(&file[i], (size - i));
 
         int error = TOMLParseLine(&file[i], remaining, &entries[j]);
@@ -276,7 +283,7 @@ int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count)
                 break;
         }
 
-        i += (SkipWhitespace(&file[i + remaining], (size - i)) + remaining); // Slight hack, should get around multiple newlines
+        i += remaining;
     }
 
     return result;
