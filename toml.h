@@ -264,7 +264,11 @@ int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count)
 
     while (i < size && j < count) {
         i += SkipWhitespace(&file[i], (size - i));
-        remaining = NextLine(&file[i], (size - i));
+        if (file[i] == '\0') {
+            break; // In case of trailing newlines
+        }
+
+        remaining = NextLine(&file[i], (size - i)); 
 
         int error = TOMLParseLine(&file[i], remaining, &entries[j]);
 

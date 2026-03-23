@@ -221,7 +221,7 @@ double StrToFloat(char *buf, int bufSize)
 int NextLine(char *buf, int size) {
     int i = 0;
 
-    while (i < size) {
+    while (i <= size) {
         if (buf[i] == '\n') {
             return i + 1;
         } else if (buf[i] == '\r') {
@@ -230,6 +230,8 @@ int NextLine(char *buf, int size) {
             } else {
                 return i + 1; // Might as well return, only using cr has technically existed
             }
+        } else if (buf[i] == '\0') {
+            return i;
         }
         i++;
     }
