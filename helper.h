@@ -1,29 +1,34 @@
+#include <stdio.h>
+
+#ifndef HELPER_H
+#define HELPER_H
+
 /* Helper functions */ 
 // TODO: Stop incrementing pointers, terrible idea
 // The toml library is cleaner and safer than basically everything here, these implementations need work but get the job done
 // The main library doesnt use these functions often and you can swap these out for something in stdlib or whatever
 
-int IsNumeric(char c) {
+static inline int IsNumeric(char c) {
     return (c >= '0' && c <= '9');
 }
 
-int IsNumericHex(char c) {
+static inline int IsNumericHex(char c) {
     return ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
 }
 
-int IsAlpha(char c) {
+static inline int IsAlpha(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-int IsAlphaNumeric(char c) {
+static inline int IsAlphaNumeric(char c) {
     return IsAlpha(c) || IsNumeric(c);
 }
 
-int IsWhiteSpace(char c) {
+static inline int IsWhiteSpace(char c) {
     return (c == ' ' || c == '\n' || c == '\r');
 }
 
-int SkipWhitespace(char *string, int size) {
+static inline int SkipWhitespace(char *string, int size) {
     int i = 0;
     while (i < size && string[i] != '\0') { 
         if (!IsWhiteSpace(string[i])) {
@@ -36,13 +41,14 @@ int SkipWhitespace(char *string, int size) {
     return i;
 }
 
-int StrCmp(char *source, int sourceSize, char *target, int targetSize) {
+static inline int StrCmp(char *source, int sourceSize, char *target, int targetSize) {
     int i = 0;
     if (targetSize > sourceSize) {
+        printf("here %d %d\n", sourceSize, targetSize);
         return 0;
     }
 
-    while (i < sourceSize && i < targetSize && !IsWhiteSpace(source[i]) && source[i] != '\0') {
+    while (i < sourceSize && i < targetSize && source[i] != '\0') {
         if (source[i] != target[i]) {
             return 0;
         } 
@@ -52,14 +58,22 @@ int StrCmp(char *source, int sourceSize, char *target, int targetSize) {
     return 1; // Does not ensure either string is terminated
 }
 
-char ToUpper(char c) {
+static inline int StrLen(char *str) {
+    int i = 0;
+
+    while (str[i++] != '\0');
+
+    return i; // Gross
+}
+
+static inline char ToUpper(char c) {
     if (c >= 'a' && c <= 'z') {
         return c - 32; // Distance between upper and lowercase variant in ASCII table
     }
     return c;
 }
 
-double PowerD (double x, int y)
+static inline double PowerD (double x, int y)
 {
     double temp;
     if (y == 0)
@@ -75,7 +89,7 @@ double PowerD (double x, int y)
     }
 }
 
-int IntToStr(char *buf, int bufSize, unsigned long long n, int sign, int base) {
+static inline int IntToStr(char *buf, int bufSize, unsigned long long n, int sign, int base) {
     if (base < 2 || base > 16 || base % 2 != 0) {
         return 0; // Fail, unsupported base
     }
@@ -110,16 +124,16 @@ int IntToStr(char *buf, int bufSize, unsigned long long n, int sign, int base) {
     buf[j] = 0; // Terminate
 }
 
-int UIntToStr(char *buf, int bufSize, unsigned long long n, int base) {
+static inline void UIntToStr(char *buf, int bufSize, unsigned long long n, int base) {
     IntToStr(buf, bufSize, n, 0, base);
 }
 
-int SIntToStr(char *buf, int bufSize, long long n, int base) {
+static inline void SIntToStr(char *buf, int bufSize, long long n, int base) {
     IntToStr(buf, bufSize, (n < 0) ? -n : n, (n < 0), base); // arg 3 is absolute value
 }
 
 // TODO: Error handling PLEASE
-long long StrToInt(char *str, int bufSize, int base) {
+static inline long long StrToInt(char *str, int bufSize, int base) {
     char *p = str;
     int i = 0;
 
@@ -158,7 +172,7 @@ long long StrToInt(char *str, int bufSize, int base) {
     return result * (!sign ? 1 : -1);
 }
 
-int FloatToStr(char *buf, int bufSize, float n, int round) {
+static inline int FloatToStr(char *buf, int bufSize, float n, int round) {
     char *p = buf;
 
     int sign = 0;
@@ -179,7 +193,7 @@ int FloatToStr(char *buf, int bufSize, float n, int round) {
 }
 
 
-double StrToFloat(char *buf, int bufSize)
+static inline double StrToFloat(char *buf, int bufSize)
 {
     char *p = buf;
     int sign = 1;
@@ -218,7 +232,7 @@ double StrToFloat(char *buf, int bufSize)
     return sign * (before + after / scale);
 }
 
-int NextLine(char *buf, int size) {
+static inline int NextLine(char *buf, int size) {
     int i = 0;
 
     while (i <= size) {
@@ -239,7 +253,7 @@ int NextLine(char *buf, int size) {
     return 0;
 }
 
-int MemCpy(char *source, int sourceSize, char *target, int targetSize) {
+static inline int MemCpy(char *source, int sourceSize, char *target, int targetSize) {
     int i = 0;
 
     if (sourceSize > targetSize) {
@@ -254,3 +268,4 @@ int MemCpy(char *source, int sourceSize, char *target, int targetSize) {
     return 1;
 }
 
+#endif
