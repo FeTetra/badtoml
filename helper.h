@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #ifndef HELPER_H
 #define HELPER_H
 
@@ -44,7 +42,6 @@ static inline int SkipWhitespace(char *string, int size) {
 static inline int StrCmp(char *source, int sourceSize, char *target, int targetSize) {
     int i = 0;
     if (targetSize > sourceSize) {
-        printf("here %d %d\n", sourceSize, targetSize);
         return 0;
     }
 
