@@ -6,6 +6,7 @@
 // The toml library is cleaner and safer than basically everything here, these implementations need work but get the job done
 // The main library doesnt use these functions often and you can swap these out for something in stdlib or whatever
 
+#include <stdio.h>
 static inline int IsNumeric(char c) {
     return (c >= '0' && c <= '9');
 }
@@ -45,7 +46,7 @@ static inline int StrCmp(char *source, int sourceSize, char *target, int targetS
         return 0;
     }
 
-    while (i < sourceSize && i < targetSize && source[i] != '\0') {
+    while (i < sourceSize && i < targetSize) {
         if (source[i] != target[i]) {
             return 0;
         } 
@@ -58,7 +59,7 @@ static inline int StrCmp(char *source, int sourceSize, char *target, int targetS
 static inline int StrLen(char *str) {
     int i = 0;
 
-    while (str[i++] != '\0');
+    while (str[i] != '\0') { i++; };
 
     return i; // Gross
 }
@@ -73,9 +74,8 @@ static inline char ToUpper(char c) {
 static inline double PowerD (double x, int y)
 {
     double temp;
-    if (y == 0)
-    return 1;
-    temp = PowerD (x, y / 2);
+    if (y == 0) { return 1; }
+    temp = PowerD(x, y / 2);
     if ((y % 2) == 0) {
         return temp * temp;
     } else {
@@ -263,6 +263,14 @@ static inline int MemCpy(char *source, int sourceSize, char *target, int targetS
     }
 
     return 1;
+}
+
+static inline void MemSet(char *buf, int size, char c) {
+    int i = 0;
+
+    while (i++ < size) {
+        buf[i] = c;
+    }
 }
 
 #endif

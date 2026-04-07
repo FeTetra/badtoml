@@ -6,6 +6,7 @@
 #define MAX_SECTION_SIZE 64
 #define MAX_KEY_SIZE 64
 #define MAX_VALUE_SIZE 64 // For string values
+#define FLOAT_ROUND_WRITE 5 // Round to 5 places
 
 struct TOMLEntry {
     char section[MAX_SECTION_SIZE];
@@ -42,5 +43,9 @@ enum TOMLValueType {
 };
 
 int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count);
+
+int TOMLCreateKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size);
+
+int TOMLCreateFileFromEntries(struct TOMLEntry *entries, int count, char *buf, int size);
 
 #endif

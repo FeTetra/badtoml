@@ -1,4 +1,5 @@
 #include "toml.h"
+#include "helper.h"
 
 /* Parsing */
 
@@ -253,4 +254,90 @@ int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count)
     return result;
 }
 
+/* Serialization */
+
+int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
+    switch (entry.valueType) {
+        case TOML_INT:
+            SIntToStr(buf, size, entry.value.intVal, 10);
+            break;
+        case TOML_INT_BIN:
+            SIntToStr(buf, size, entry.value.intVal, 2);
+            break;
+        case TOML_INT_OCT:
+            SIntToStr(buf, size, entry.value.intVal, 8);
+            break;
+        case TOML_INT_HEX:
+            SIntToStr(buf, size, entry.value.intVal, 16);
+            break;
+
+        case TOML_BOOL:
+            if (entry.value.boolVal) {
+                MemCpy("true", 4, buf, size);
+            }
+            else {
+                MemCpy("false", 5, buf, size);
+            }
+            break;
+
+        case TOML_STRING:
+        case TOML_STRING_LITERAL:; // yikes
+            int valueSize = StrLen(entry.value.strVal);
+            MemCpy(entry.value.strVal, valueSize, buf, size);
+            break;
+        
+        case TOML_FLOAT:
+            FloatToStr(buf, size, entry.value.floatVal, FLOAT_ROUND_WRITE);
+            break;
+    }
+
+    return 1;
+}
+
+int TOMLCreateKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
+    int i = 0;
+
+    MemSet(buf, size, '\0'); // Laziness
+
+    int keySize = StrLen(entry.key);
+    MemCpy(entry.key, keySize, &buf[i], (size - i));
+    i += keySize;
+    MemCpy(" = ", 3, &buf[i], (size - i));
+    i += 3;
+
+    TOMLCreateValueFromEntry(entry, &buf[i], (size - i));
+
+    return 1;
+}
+
+int TOMLCreateFileFromEntries(struct TOMLEntry *entries, int count, char *buf, int size) {
+    int i = 0;
+    int j = 0;
+
+    char *currentSection = NULL;
+    int currentSectionSize = 0;
+
+    MemSet(buf, size, '\0'); // Double laziness
+
+    // This is all so ugly
+    while (j < count && i < size) {
+        int sectionSize = StrLen(entries[j].section);
+        if (currentSection == NULL || !StrCmp(entries[j].section, sectionSize, currentSection, currentSectionSize)) {
+            buf[i++] = '[';
+            MemCpy(entries[j].section, sectionSize, &buf[i], (size - i));
+            currentSection = &buf[i];
+            currentSectionSize = sectionSize;
+            i += sectionSize;
+            MemCpy("]\n", 2, &buf[i], (size - i));
+            i += 2;
+        }
+
+        TOMLCreateKeyValueFromEntry(entries[j], &buf[i], (size - i));
+        while (buf[i] != '\0' && i < size) { i++; }
+        buf[i++] = '\n';
+        j++;
+    }
+
+    return 1;
+}
 
