@@ -8,38 +8,40 @@
 
 #define NULL ((void *)0)
 
-static inline int IsDigit(int c) {
-    c = (unsigned char)c;
-    return (c >= '0' && c <= '9');
+static inline int IsDigit(int ch) {
+    return (ch >= '0' && ch <= '9');
 }
 
-static inline int IsXDigit(int c) {
-    c = (unsigned char)c;
-    return (IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
+static inline int IsXDigit(int ch) {
+    return (IsDigit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F'));
 }
 
-static inline int IsUpper(int c) {
-    c = (unsigned char)c;
-    return (c >= 'A' && c <= 'Z');
+static inline int IsUpper(int ch) {
+    return (ch >= 'A' && ch <= 'Z');
 }
 
-static inline int IsLower(int c) {
-    c = (unsigned char)c;
-    return (c >= 'a' && c <= 'z');
+static inline int IsLower(int ch) {
+    return (ch >= 'a' && ch <= 'z');
 }
 
-static inline int IsAlpha(int c) {
-    return (IsUpper(c) || IsLower(c));
+static inline int IsAlpha(int ch) {
+    return (IsUpper(ch) || IsLower(ch));
 }
 
-static inline int IsAlphaNum(int c) {
-    c = (unsigned char)c;
-    return (IsAlpha(c) || IsDigit(c));
+static inline int IsAlphaNum(int ch) {
+    return (IsAlpha(ch) || IsDigit(ch));
 }
 
-static inline int IsSpace(int c) {
-    c = (unsigned char)c;
-    return (c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r' || c == ' ');
+static inline int IsSpace(int ch) {
+    return (ch == '\t' || ch == '\n' || ch == '\v' || ch == '\f' || ch == '\r' || ch == ' ');
+}
+
+static inline char ToUpper(int ch) {
+    if (IsLower(ch)) {
+        return ch - 32;
+    }
+
+    return ch;
 }
 
 static inline int SkipWhitespace(char *string, int size) {
@@ -77,13 +79,6 @@ static inline int StrLen(char *str) {
     while (str[i] != '\0') { i++; };
 
     return i; // Gross
-}
-
-static inline char ToUpper(char c) {
-    if (c >= 'a' && c <= 'z') {
-        return c - 32; // Distance between upper and lowercase variant in ASCII table
-    }
-    return c;
 }
 
 static inline double PowerD (double x, int y)
@@ -173,7 +168,7 @@ static inline long long StrToLL(char *str, int bufSize, int base) {
     long long result = 0;
     while (i++ < bufSize && *p != '\0') {
         for (int j = 0; j < base; j++) {
-            if ((IsLower(*p) ? ToUpper(*p) : *p) == "0123456789ABCDEF"[j]) {
+            if (ToUpper(*p) == "0123456789ABCDEF"[j]) {
                 result = result * base + j;
                 break;
             }
