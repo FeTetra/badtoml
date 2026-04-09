@@ -18,9 +18,18 @@ static inline int IsXDigit(int c) {
     return (IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
 }
 
-static inline int IsAlpha(int c) {
+static inline int IsUpper(int c) {
     c = (unsigned char)c;
-    return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+    return (c >= 'A' && c <= 'Z');
+}
+
+static inline int IsLower(int c) {
+    c = (unsigned char)c;
+    return (c >= 'a' && c <= 'z');
+}
+
+static inline int IsAlpha(int c) {
+    return (IsUpper(c) || IsLower(c));
 }
 
 static inline int IsAlphaNum(int c) {
@@ -135,8 +144,8 @@ static inline void SIntToStr(char *buf, int bufSize, long long n, int base) {
     IntToStr(buf, bufSize, (n < 0) ? -n : n, (n < 0), base); // arg 3 is absolute value
 }
 
-// TODO: Error handling PLEASE
-static inline long long StrToInt(char *str, int bufSize, int base) {
+// Not quite the same as most implementations, may never change
+static inline long long StrToLL(char *str, int bufSize, int base) {
     char *p = str;
     int i = 0;
 
@@ -164,7 +173,7 @@ static inline long long StrToInt(char *str, int bufSize, int base) {
     long long result = 0;
     while (i++ < bufSize && *p != '\0') {
         for (int j = 0; j < base; j++) {
-            if (ToUpper(*p) == "0123456789ABCDEF"[j]) {
+            if ((IsLower(*p) ? ToUpper(*p) : *p) == "0123456789ABCDEF"[j]) {
                 result = result * base + j;
                 break;
             }
@@ -213,7 +222,7 @@ static inline double StrToFloat(char *buf, int bufSize)
         i++;
     }
 
-    double before = (double)StrToInt(p, i, 10);
+    double before = (double)StrToLL(p, i, 10);
     p += i;
 
     if (*p != '.') {
@@ -226,7 +235,7 @@ static inline double StrToFloat(char *buf, int bufSize)
         j++;
     }
 
-    double after = (double)StrToInt(p, j, 10);
+    double after = (double)StrToLL(p, j, 10);
     double scale = 1.0;
     for (int k = 0; k < j; k++) {
         scale *= 10.0;

@@ -143,16 +143,16 @@ static int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
 
     switch (entry->valueType) {
         case TOML_INT:
-            entry->value.intVal = StrToInt(value, size, 10);
+            entry->value.intVal = StrToLL(value, size, 10);
             break;
         case TOML_INT_BIN:
-            entry->value.intVal = StrToInt(value, size, 2);
+            entry->value.intVal = StrToLL(value, size, 2);
             break;
         case TOML_INT_OCT:
-            entry->value.intVal = StrToInt(value, size, 8);
+            entry->value.intVal = StrToLL(value, size, 8);
             break;
         case TOML_INT_HEX:
-            entry->value.intVal = StrToInt(value, size, 16);
+            entry->value.intVal = StrToLL(value, size, 16);
             break;
         case TOML_BOOL:
             entry->value.boolVal = StrCmp(value, size, "true", 4); // Assume its false if it's bool type and not true
