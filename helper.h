@@ -6,31 +6,37 @@
 // The toml library is cleaner and safer than basically everything here, these implementations need work but get the job done
 // The main library doesnt use these functions often and you can swap these out for something in stdlib or whatever
 
-#include <stdio.h>
-static inline int IsNumeric(char c) {
+#define NULL ((void *)0)
+
+static inline int IsDigit(int c) {
+    c = (unsigned char)c;
     return (c >= '0' && c <= '9');
 }
 
-static inline int IsNumericHex(char c) {
-    return ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
+static inline int IsXDigit(int c) {
+    c = (unsigned char)c;
+    return (IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
 }
 
-static inline int IsAlpha(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+static inline int IsAlpha(int c) {
+    c = (unsigned char)c;
+    return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
 }
 
-static inline int IsAlphaNumeric(char c) {
-    return IsAlpha(c) || IsNumeric(c);
+static inline int IsAlphaNum(int c) {
+    c = (unsigned char)c;
+    return (IsAlpha(c) || IsDigit(c));
 }
 
-static inline int IsWhiteSpace(char c) {
-    return (c == ' ' || c == '\n' || c == '\r');
+static inline int IsSpace(int c) {
+    c = (unsigned char)c;
+    return (c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r' || c == ' ');
 }
 
 static inline int SkipWhitespace(char *string, int size) {
     int i = 0;
     while (i < size && string[i] != '\0') { 
-        if (!IsWhiteSpace(string[i])) {
+        if (!IsSpace(string[i])) {
             break;
         }
         
@@ -176,7 +182,7 @@ static inline int FloatToStr(char *buf, int bufSize, float n, int round) {
 
     long long iPart = (long long)n;
     IntToStr(p, bufSize, iPart, (n < 0), 10); // Always use base 10?
-    while (IsNumeric(*++p)); // Skip to end of added data
+    while (IsDigit(*++p)); // Skip to end of added data
     double fPart = n - (double)iPart;
 
     if (round != 0) {
@@ -203,7 +209,7 @@ static inline double StrToFloat(char *buf, int bufSize)
     }
 
     int i = 0;
-    while (i < bufSize && IsNumeric(p[i])) {
+    while (i < bufSize && IsDigit(p[i])) {
         i++;
     }
 
@@ -216,7 +222,7 @@ static inline double StrToFloat(char *buf, int bufSize)
     p++;
 
     int j = 0;
-    while (j < bufSize && IsNumeric(p[j])) {
+    while (j < bufSize && IsDigit(p[j])) {
         j++;
     }
 
@@ -229,10 +235,8 @@ static inline double StrToFloat(char *buf, int bufSize)
     return sign * (before + after / scale);
 }
 
-static inline int NextLine(char *buf, int size) {
-    int i = 0;
-
-    while (i <= size) {
+static inline unsigned int NextLine(char *buf, unsigned int size) {
+    for (unsigned int i = 0; i <= size; i++) {
         if (buf[i] == '\n') {
             return i + 1;
         } else if (buf[i] == '\r') {
@@ -244,33 +248,30 @@ static inline int NextLine(char *buf, int size) {
         } else if (buf[i] == '\0') {
             return i;
         }
-        i++;
     }
 
     return 0;
 }
 
-static inline int MemCpy(char *source, int sourceSize, char *target, int targetSize) {
-    int i = 0;
+static inline void *MemCpy(void *dest, const void *src, unsigned int count) {
+    char *d = (char*)dest;
+    const char *s = (char*)src;
 
-    if (sourceSize > targetSize) {
-        return 0;
+    for (unsigned int i = 0; i < count; i++ ) {
+        d[i] = s[i];
     }
 
-    while (i < sourceSize) {
-        target[i] = source[i];
-        i++;
-    }
-
-    return 1;
+    return dest;
 }
 
-static inline void MemSet(char *buf, int size, char c) {
-    int i = 0;
+static inline void *MemSet(void *dest, int ch, unsigned int count) {
+    char *d = (char *)dest;
 
-    while (i++ < size) {
-        buf[i] = c;
+    for (unsigned int i = 0; i < count; i++) {
+        d[i] = (unsigned char)ch;
     }
+
+    return dest;
 }
 
 #endif

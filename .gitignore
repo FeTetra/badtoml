@@ -11,3 +11,5 @@ main.c
 # Scripts
 *.sh
 
+# GDB
+*.gch
