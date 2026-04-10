@@ -36,12 +36,29 @@ static inline int IsSpace(int ch) {
     return (ch == '\t' || ch == '\n' || ch == '\v' || ch == '\f' || ch == '\r' || ch == ' ');
 }
 
-static inline char ToUpper(int ch) {
+static inline int ToUpper(int ch) {
     if (IsLower(ch)) {
         return ch - 32;
     }
 
     return ch;
+}
+
+static inline unsigned int StrLen(const char *str) {
+    unsigned int i = 0;
+
+    while (str[i] != '\0') { i++; }
+
+    return i;
+}
+
+static inline int StrNCmp(const char *lhs, const char *rhs, unsigned int count) {
+    int i = 0;
+    while (i < count && lhs[i] && (lhs[i] == rhs[i])) {
+        i++;
+    }
+
+    return (const unsigned char)lhs[i] - (const unsigned char)rhs[i];
 }
 
 static inline int SkipWhitespace(char *string, int size) {
@@ -55,30 +72,6 @@ static inline int SkipWhitespace(char *string, int size) {
     };
 
     return i;
-}
-
-static inline int StrCmp(char *source, int sourceSize, char *target, int targetSize) {
-    int i = 0;
-    if (targetSize > sourceSize) {
-        return 0;
-    }
-
-    while (i < sourceSize && i < targetSize) {
-        if (source[i] != target[i]) {
-            return 0;
-        } 
-        i++;
-    }
-
-    return 1; // Does not ensure either string is terminated
-}
-
-static inline int StrLen(char *str) {
-    int i = 0;
-
-    while (str[i] != '\0') { i++; };
-
-    return i; // Gross
 }
 
 static inline double PowerD (double x, int y)

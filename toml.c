@@ -119,10 +119,10 @@ static int TOMLGetValueType(char *value, int size) {
         }
     }
 
-    if (StrCmp(value, size, "true", 4)) {
+    if (StrNCmp(value, "true", 4) >= 0) {
         i += 5;
         result = TOML_BOOL;
-    } else if (StrCmp(value, size, "false", 5)) {
+    } else if (StrNCmp(value, "false", 5) >= 0) {
         i += 6;
         result = TOML_BOOL;
     }
@@ -155,7 +155,7 @@ static int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
             entry->value.intVal = StrToLL(value, size, 16);
             break;
         case TOML_BOOL:
-            entry->value.boolVal = StrCmp(value, size, "true", 4); // Assume its false if it's bool type and not true
+            entry->value.boolVal = StrNCmp(value, "true", 4) <= 0; // Assume its false if it's bool type and not true
             break;
         case TOML_FLOAT:
             entry->value.floatVal = StrToFloat(value, size);
@@ -315,18 +315,16 @@ int TOMLCreateFileFromEntries(struct TOMLEntry *entries, int count, char *buf, i
     int j = 0;
 
     char *currentSection = NULL;
-    int currentSectionSize = 0;
 
     MemSet(buf, '\0', size); // Double laziness
 
     // This is all so ugly
     while (j < count && i < size) {
         int sectionSize = StrLen(entries[j].section);
-        if (currentSection == NULL || !StrCmp(entries[j].section, sectionSize, currentSection, currentSectionSize)) {
+        if (currentSection == NULL || StrNCmp(entries[j].section, currentSection, sectionSize) > 0) {
             buf[i++] = '[';
             MemCpy(&buf[i], entries[j].section, sectionSize);
             currentSection = &buf[i];
-            currentSectionSize = sectionSize;
             i += sectionSize;
             MemCpy(&buf[i], "]\n", 2);
             i += 2;
