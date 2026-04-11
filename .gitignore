@@ -13,3 +13,6 @@ main.c
 
 # GDB
 *.gch
+
+# IDE
+.vscode
