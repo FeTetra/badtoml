@@ -4,7 +4,7 @@
 /* Parsing */
 
 static int TOMLParseSection(char *line, int size, char *buf) {
-    int i = SkipWhitespace(line, size);
+    int i = Skip(line, size);
 
     if (line[i] != '[') {
         return TOML_PARSE_FAIL;
@@ -182,13 +182,13 @@ static int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
 
     i += TOMLParseKey(&line[i], (size - i), entry); 
 
-    i += SkipWhitespace(&line[i], (size - i));
+    i += Skip(&line[i], (size - i));
 
     if (line[i++] != '=') {
         return TOML_PARSE_FAIL; // No value
     }
 
-    i += SkipWhitespace(&line[i], (size - i));
+    i += Skip(&line[i], (size - i));
  
     entry->valueType = TOMLGetValueType(&line[i], (size - i));
 
@@ -204,7 +204,7 @@ static int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
 }
 
 static int TOMLParseLine(char *line, int size, struct TOMLEntry *entry) {
-    int i = SkipWhitespace(line, size);
+    int i = Skip(line, size);
 
     if (line[i] == '#') {
         return TOML_PARSE_COMMENT;
@@ -224,7 +224,7 @@ int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count)
     char currentSection[MAX_SECTION_SIZE] = "root";
 
     while (i < size && j < count) {
-        i += SkipWhitespace(&file[i], (size - i));
+        i += Skip(&file[i], (size - i));
         if (file[i] == '\0') {
             break; // In case of trailing newlines
         }

@@ -2,9 +2,14 @@
 #define HELPER_H
 
 /* Helper functions */ 
-// TODO: Stop incrementing pointers, terrible idea
-// The toml library is cleaner and safer than basically everything here, these implementations need work but get the job done
-// The main library doesnt use these functions often and you can swap these out for something in stdlib or whatever
+/* 
+    Many of these can be replaced with stdlib functions and more will be replaceable later.
+    These use the pascal casing convention, to replace these with stdlib funcions you will 
+    need to rename any calls of these to the standard function names.
+    Example: StrLen(someStr); -> strlen(someStr);
+
+    Exceptions: StrToLL() is not compatible with strtoll()
+*/
 
 #define NULL ((void *)0)
 
@@ -28,7 +33,7 @@ static inline int IsAlpha(int ch) {
     return (IsUpper(ch) || IsLower(ch));
 }
 
-static inline int IsAlphaNum(int ch) {
+static inline int IsAlNum(int ch) {
     return (IsAlpha(ch) || IsDigit(ch));
 }
 
@@ -53,16 +58,37 @@ static inline unsigned int StrLen(const char *str) {
 }
 
 static inline int StrNCmp(const char *lhs, const char *rhs, unsigned int count) {
-    int i = 0;
-    while (i < count && lhs[i] && (lhs[i] == rhs[i])) {
-        i++;
-    }
+    unsigned int i = 0;
+
+    while (i < count && lhs[i] && (lhs[i] == rhs[i])) { i++; }
 
     return (const unsigned char)lhs[i] - (const unsigned char)rhs[i];
 }
 
-static inline int SkipWhitespace(char *string, int size) {
-    int i = 0;
+static inline void *MemCpy(void *dest, const void *src, unsigned int count) {
+    char *d = (char*)dest;
+    const char *s = (char*)src;
+
+    for (unsigned int i = 0; i < count; i++ ) {
+        d[i] = s[i];
+    }
+
+    return dest;
+}
+
+static inline void *MemSet(void *dest, int ch, unsigned int count) {
+    char *d = (char *)dest;
+
+    for (unsigned int i = 0; i < count; i++) {
+        d[i] = (unsigned char)ch;
+    }
+
+    return dest;
+}
+
+static inline unsigned int Skip(char *string, unsigned int size) {
+    unsigned int i = 0;
+
     while (i < size && string[i] != '\0') { 
         if (!IsSpace(string[i])) {
             break;
@@ -122,6 +148,8 @@ static inline int IntToStr(char *buf, int bufSize, unsigned long long n, int sig
         buf[j++] = buf[i];
     }
     buf[j] = 0; // Terminate
+    
+    return 1;
 }
 
 static inline void UIntToStr(char *buf, int bufSize, unsigned long long n, int base) {
@@ -248,27 +276,6 @@ static inline unsigned int NextLine(char *buf, unsigned int size) {
     }
 
     return 0;
-}
-
-static inline void *MemCpy(void *dest, const void *src, unsigned int count) {
-    char *d = (char*)dest;
-    const char *s = (char*)src;
-
-    for (unsigned int i = 0; i < count; i++ ) {
-        d[i] = s[i];
-    }
-
-    return dest;
-}
-
-static inline void *MemSet(void *dest, int ch, unsigned int count) {
-    char *d = (char *)dest;
-
-    for (unsigned int i = 0; i < count; i++) {
-        d[i] = (unsigned char)ch;
-    }
-
-    return dest;
 }
 
 #endif
