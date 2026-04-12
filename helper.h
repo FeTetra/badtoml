@@ -152,11 +152,11 @@ static inline int IntToStr(char *buf, int bufSize, unsigned long long n, int sig
     return 1;
 }
 
-static inline void UIntToStr(char *buf, int bufSize, unsigned long long n, int base) {
+static inline void ULLToStr(char *buf, int bufSize, unsigned long long n, int base) {
     IntToStr(buf, bufSize, n, 0, base);
 }
 
-static inline void SIntToStr(char *buf, int bufSize, long long n, int base) {
+static inline void SLLToStr(char *buf, int bufSize, long long n, int base) {
     IntToStr(buf, bufSize, (n < 0) ? -n : n, (n < 0), base); // arg 3 is absolute value
 }
 
@@ -200,7 +200,7 @@ static inline long long StrToLL(char *str, int bufSize, int base) {
     return result * (!sign ? 1 : -1);
 }
 
-static inline int FloatToStr(char *buf, int bufSize, float n, int round) {
+static inline int DoubleToStr(char *buf, int bufSize, float n, int round) {
     char *p = buf;
 
     int sign = 0;
@@ -214,14 +214,14 @@ static inline int FloatToStr(char *buf, int bufSize, float n, int round) {
         *p++ = '.';
         fPart = fPart * PowerD(10, round);
         // Just realized that passing bufSize like this is really stupid, fix later
-        UIntToStr(p, bufSize, (long long)fPart, 10); // TODO: actually write slightly safe code
+        ULLToStr(p, bufSize, (long long)fPart, 10); // TODO: actually write slightly safe code
     }
 
     return 1;
 }
 
 
-static inline double StrToFloat(char *buf, int bufSize)
+static inline double StrToDouble(char *buf, int bufSize)
 {
     char *p = buf;
     int sign = 1;

@@ -158,7 +158,7 @@ static int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
             entry->value.boolVal = StrNCmp(value, "true", 4) <= 0; // Assume its false if it's bool type and not true
             break;
         case TOML_FLOAT:
-            entry->value.floatVal = StrToFloat(value, size);
+            entry->value.floatVal = StrToDouble(value, size);
             break;
         case TOML_STRING:
             while (++i < MAX_VALUE_SIZE && i < size && value[i] != '\"') {
@@ -259,16 +259,16 @@ int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count)
 int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
     switch (entry.valueType) {
         case TOML_INT:
-            SIntToStr(buf, size, entry.value.intVal, 10);
+            SLLToStr(buf, size, entry.value.intVal, 10);
             break;
         case TOML_INT_BIN:
-            SIntToStr(buf, size, entry.value.intVal, 2);
+            SLLToStr(buf, size, entry.value.intVal, 2);
             break;
         case TOML_INT_OCT:
-            SIntToStr(buf, size, entry.value.intVal, 8);
+            SLLToStr(buf, size, entry.value.intVal, 8);
             break;
         case TOML_INT_HEX:
-            SIntToStr(buf, size, entry.value.intVal, 16);
+            SLLToStr(buf, size, entry.value.intVal, 16);
             break;
 
         case TOML_BOOL:
@@ -287,7 +287,7 @@ int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
             break;
         
         case TOML_FLOAT:
-            FloatToStr(buf, size, entry.value.floatVal, FLOAT_ROUND_WRITE);
+            DoubleToStr(buf, size, entry.value.floatVal, FLOAT_ROUND_WRITE);
             break;
     }
 
