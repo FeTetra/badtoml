@@ -1,15 +1,18 @@
 #ifndef KEYMAP_H
 #define KEYMAP_H
 
+#include <string.h>
+#include <ctype.h>
+
 #include "toml.h"
 #include "helper.h"
 
-struct TOMLKeyMap {
+typedef struct TOMLKeyMap {
     char key[MAX_KEY_SIZE];
     int valueType;
     void *targetValue;
-};
+} TOMLKeyMap;
 
-int TOMLApplyEntriesToKeyMap(struct TOMLEntry *entries, int entryCount, struct TOMLKeyMap *keyMap, int mapCount);
+int TOMLApplyEntriesToKeyMap(TOMLEntry *entries, int entryCount, TOMLKeyMap *keyMap, int mapCount);
 
 #endif

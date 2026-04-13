@@ -1,16 +1,14 @@
 #include "keymap.h"
-#include "toml.h"
-#include <stdio.h>
  
 int TOMLApplyEntriesToKeyMap(struct TOMLEntry *entries, int entryCount, struct TOMLKeyMap *keyMap, int mapCount) {
     for (int i = 0; i < mapCount; i++) {
         char *currentMapKey = keyMap[i].key;
-        int currentMapKeyLen = StrLen(currentMapKey);
+        int currentMapKeyLen = strlen(currentMapKey);
 
         for (int j = 0; j < entryCount; j++) {
             char *currentEntryKey = entries[j].key;
             
-            if (StrNCmp(currentEntryKey, currentMapKey, currentMapKeyLen) > 0) {
+            if (strncmp(currentEntryKey, currentMapKey, currentMapKeyLen) > 0) {
                 continue;
             }
 

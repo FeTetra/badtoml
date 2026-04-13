@@ -1,6 +1,9 @@
 #ifndef TOML_H
 #define TOML_H
 
+#include <string.h>
+#include <ctype.h>
+
 #include "helper.h"
 
 #define MAX_SECTION_SIZE 64
@@ -8,7 +11,7 @@
 #define MAX_VALUE_SIZE 64 // For string values
 #define FLOAT_ROUND_WRITE 5 // Round to 5 places
 
-struct TOMLEntry {
+typedef struct TOMLEntry {
     char section[MAX_SECTION_SIZE];
     char key[MAX_KEY_SIZE];
 
@@ -19,7 +22,7 @@ struct TOMLEntry {
         long long intVal;
         double floatVal;
     } value;
-};
+} TOMLEntry;
 
 enum TOMLErrno {
     TOML_SUCCESS,
@@ -42,10 +45,10 @@ enum TOMLValueType {
     //...
 };
 
-int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count);
+int TOMLParseFileBuf(char *file, size_t size, TOMLEntry *entries, int count);
 
-int TOMLCreateKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size);
+int TOMLCreateKeyValueFromEntry(TOMLEntry entry, char *buf, size_t size);
 
-int TOMLCreateFileFromEntries(struct TOMLEntry *entries, int count, char *buf, int size);
+int TOMLCreateFileFromEntries(TOMLEntry *entries, int count, char *buf, size_t size);
 
 #endif

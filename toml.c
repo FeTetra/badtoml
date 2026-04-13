@@ -1,9 +1,8 @@
 #include "toml.h"
-#include "helper.h"
 
 /* Parsing */
 
-static int TOMLParseSection(char *line, int size, char *buf) {
+static int TOMLParseSection(char *line, size_t size, char *buf) {
     int i = Skip(line, size);
 
     if (line[i] != '[') {
@@ -27,12 +26,12 @@ static int TOMLParseSection(char *line, int size, char *buf) {
 }
 
 // TODO: Make this function return an error instead of i, we can skip the data this reads later anyways
-// TODO: Make this use MemCpy or StrCpy function
+// TODO: Make this use memcpy or StrCpy function
 
-static int TOMLParseKey(char *key, int size, struct TOMLEntry *entry) {
-    int i = 0;
+static int TOMLParseKey(char *key, size_t size, TOMLEntry *entry) {
+    size_t i = 0;
 
-    while(i < size && IsAlpha(key[i])) {
+    while(i < size && isalpha(key[i])) {
         if (i < MAX_KEY_SIZE) {
             entry->key[i] = key[i]; // Copy key to buffer
         }
@@ -44,8 +43,8 @@ static int TOMLParseKey(char *key, int size, struct TOMLEntry *entry) {
     return i;
 }
 
-static int TOMLGetValueType(char *value, int size) {
-    int i = 0;
+static int TOMLGetValueType(char *value, size_t size) {
+    size_t i = 0;
     int result = TOML_INVALID;
 
     if (value[0] == '\"') {
@@ -69,12 +68,12 @@ static int TOMLGetValueType(char *value, int size) {
     }
 
     int skip = (value[0] == '-' || value[0] == '+');
-    if (IsDigit(value[skip])) { 
+    if (isdigit(value[skip])) { 
         int decimalCount = 0;
         int intType = TOML_INT;
         i += skip;
 
-        if (!IsDigit(value[i + 1])) {
+        if (!isdigit(value[i + 1])) {
             switch (value[i + 1]) {
                 case 'b':
                     intType = TOML_INT_BIN;
@@ -92,15 +91,15 @@ static int TOMLGetValueType(char *value, int size) {
         }
         
         while (i < size) {
-            if (!IsDigit(value[i])) {
+            if (!isdigit(value[i])) {
                 if (value[i] == '.' && intType == TOML_INT) {
                     decimalCount++;
                     i++;
                     continue;
-                } else if (intType == TOML_INT_HEX && IsXDigit(value[i])) {
+                } else if (intType == TOML_INT_HEX && isxdigit(value[i])) {
                     i++;
                     continue;
-                } else if (IsSpace(value[i]) || value[i] == '\0') {
+                } else if (isspace(value[i]) || value[i] == '\0') {
                     break; 
                 } 
 
@@ -119,16 +118,16 @@ static int TOMLGetValueType(char *value, int size) {
         }
     }
 
-    if (StrNCmp(value, "true", 4) >= 0) {
+    if (strncmp(value, "true", 4) >= 0) {
         i += 5;
         result = TOML_BOOL;
-    } else if (StrNCmp(value, "false", 5) >= 0) {
+    } else if (strncmp(value, "false", 5) >= 0) {
         i += 6;
         result = TOML_BOOL;
     }
 
     while (i < size && result != TOML_INVALID) {
-        if (!IsSpace(value[i]) && value[i] != '\0') {
+        if (!isspace(value[i]) && value[i] != '\0') {
             result = TOML_INVALID;
             return result;
         }
@@ -138,8 +137,8 @@ static int TOMLGetValueType(char *value, int size) {
     return result;
 }
 
-static int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
-    int i = 0;
+static int TOMLParseValue(char *value, size_t size, TOMLEntry *entry) {
+    size_t i = 0;
 
     switch (entry->valueType) {
         case TOML_INT:
@@ -155,7 +154,7 @@ static int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
             entry->value.intVal = StrToLL(value, size, 16);
             break;
         case TOML_BOOL:
-            entry->value.boolVal = StrNCmp(value, "true", 4) <= 0; // Assume its false if it's bool type and not true
+            entry->value.boolVal = strncmp(value, "true", 4) <= 0; // Assume its false if it's bool type and not true
             break;
         case TOML_FLOAT:
             entry->value.floatVal = StrToDouble(value, size);
@@ -177,8 +176,8 @@ static int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
     return TOML_SUCCESS;
 }
 
-static int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
-    int i = 0;
+static int TOMLParseKeyValue(char *line, size_t size, TOMLEntry *entry) {
+    size_t i = 0;
 
     i += TOMLParseKey(&line[i], (size - i), entry); 
 
@@ -203,7 +202,7 @@ static int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
     return TOML_SUCCESS;
 }
 
-static int TOMLParseLine(char *line, int size, struct TOMLEntry *entry) {
+static int TOMLParseLine(char *line, size_t size, TOMLEntry *entry) {
     int i = Skip(line, size);
 
     if (line[i] == '#') {
@@ -216,8 +215,8 @@ static int TOMLParseLine(char *line, int size, struct TOMLEntry *entry) {
     return TOMLParseKeyValue(line, size, entry);
 }
 
-int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count) {
-    int i = 0;
+int TOMLParseFileBuf(char *file, size_t size, TOMLEntry *entries, int count) {
+    size_t i = 0;
     int j = 0;
     int remaining = 0;
     int result = TOML_SUCCESS;
@@ -235,7 +234,7 @@ int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count)
 
         switch (error) {
             case TOML_SUCCESS:
-                MemCpy(entries[j].section, currentSection, MAX_SECTION_SIZE);
+                memcpy(entries[j].section, currentSection, MAX_SECTION_SIZE);
                 j++;
                 break;
             case TOML_PARSE_COMMENT:
@@ -256,7 +255,7 @@ int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count)
 
 /* Serialization */
 
-int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
+int TOMLCreateValueFromEntry(TOMLEntry entry, char *buf, size_t size) {
     switch (entry.valueType) {
         case TOML_INT:
             SLLToStr(buf, size, entry.value.intVal, 10);
@@ -273,17 +272,17 @@ int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
 
         case TOML_BOOL:
             if (entry.value.boolVal) {
-                MemCpy(buf, "true", 4);
+                memcpy(buf, "true", 4);
             }
             else {
-                MemCpy(buf, "false", 5);
+                memcpy(buf, "false", 5);
             }
             break;
 
         case TOML_STRING:
         case TOML_STRING_LITERAL:; // yikes
-            int valueSize = StrLen(entry.value.strVal);
-            MemCpy(buf, entry.value.strVal, valueSize);
+            int valueSize = strlen(entry.value.strVal);
+            memcpy(buf, entry.value.strVal, valueSize);
             break;
         
         case TOML_FLOAT:
@@ -294,15 +293,15 @@ int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
     return 1;
 }
 
-int TOMLCreateKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
-    int i = 0;
+int TOMLCreateKeyValueFromEntry(TOMLEntry entry, char *buf, size_t size) {
+    size_t i = 0;
 
-    MemSet(buf, '\0', size); // Laziness
+    memset(buf, '\0', size); // Laziness
 
-    int keySize = StrLen(entry.key);
-    MemCpy(&buf[i], entry.key, keySize);
+    int keySize = strlen(entry.key);
+    memcpy(&buf[i], entry.key, keySize);
     i += keySize;
-    MemCpy(&buf[i], " = ", 3);
+    memcpy(&buf[i], " = ", 3);
     i += 3;
 
     TOMLCreateValueFromEntry(entry, &buf[i], (size - i));
@@ -310,23 +309,23 @@ int TOMLCreateKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
     return 1;
 }
 
-int TOMLCreateFileFromEntries(struct TOMLEntry *entries, int count, char *buf, int size) {
-    int i = 0;
+int TOMLCreateFileFromEntries(TOMLEntry *entries, int count, char *buf, size_t size) {
+    size_t i = 0;
     int j = 0;
 
     char *currentSection = NULL;
 
-    MemSet(buf, '\0', size); // Double laziness
+    memset(buf, '\0', size); // Double laziness
 
     // This is all so ugly
     while (j < count && i < size) {
-        int sectionSize = StrLen(entries[j].section);
-        if (currentSection == NULL || StrNCmp(entries[j].section, currentSection, sectionSize) > 0) {
+        int sectionSize = strlen(entries[j].section);
+        if (currentSection == NULL || strncmp(entries[j].section, currentSection, sectionSize) > 0) {
             buf[i++] = '[';
-            MemCpy(&buf[i], entries[j].section, sectionSize);
+            memcpy(&buf[i], entries[j].section, sectionSize);
             currentSection = &buf[i];
             i += sectionSize;
-            MemCpy(&buf[i], "]\n", 2);
+            memcpy(&buf[i], "]\n", 2);
             i += 2;
         }
 
