@@ -1,222 +1,203 @@
-#include "helper.h"
-#include <stddef.h>
-#include <string.h>
-
-typedef enum TokenType {
-    TOKEN_EOF,
-    TOKEN_ERROR,
-
-    TOKEN_KEY,
-    TOKEN_SECTION,
-    TOKEN_STRING,
-    TOKEN_NUMBER,
-    TOKEN_DATETIME,
-    TOKEN_BOOL,
-
-    TOKEN_EQUALS,
-    TOKEN_DOT,
-    TOKEN_COMMA,
-    TOKEN_LBRACKET,
-    TOKEN_RBRACKET,
-
-    TOKEN_NEWLINE
-} TokenType;
-
-typedef struct Token {
-    TokenType type;
-    const char *start;
-    size_t len;
-    unsigned int line;
-    const char *error;
-} Token;
-
-typedef struct Lexer {
-    const char *input;
-    size_t pos;
-    size_t len;
-    unsigned int line;
-} Lexer;
+#include "tokenizer.h"
 
 /* Low-level lexer functions */
 
-int IsAtEnd(Lexer *l) {
-    return (l->pos >= l->len);
+int IsAtEnd(struct Lexer *l) {
+    return *l->current == '\0';
 }
 
-char Peek(Lexer *l) {
+char Advance(struct Lexer *l) {
+    return *l->current++;
+}
+
+char Peek(struct Lexer *l) {
+    return *l->current;
+}
+
+char PeekNext(struct Lexer *l) {
     if (IsAtEnd(l)) return '\0';
-    return l->input[l->pos];
+    return l->current[1];
 }
 
-char PeekNext(Lexer *l) {
-    if (l->pos + 1 >= l->len) return '\0';
-    return l->input[l->pos + 1];
+int IsAlphaOrSeparator(char c) {
+    return IsAlpha(c) || c == '_' || c == '-';
 }
 
-char Advance(Lexer *l) {
-    char result = Peek(l);
+/* Constructors */
 
-    l->pos++;
-    if (result == '\n') {
-        l->line++;
-    } else if (result == '\r') {
-        l->pos += (1 + (PeekNext(l) == '\n'));
-        l->line++;
-    }
-
-    return result;
+struct Lexer MakeLexer(char *buf) {
+    struct Lexer l;
+    l.start = buf;
+    l.current = buf;
+    l.line = 0;
+    return l;
 }
 
-int Match(Lexer *l, char expected) {
-    if (Peek(l) != expected) return 0;
-    l->pos++;
-    return 1;
-}
-
-void SkipWhiteSpace(Lexer *l) {
-    for (;;) {
-        char c = Peek(l);
-        if (IsSpace(c)) {
-            Advance(l);
-        } else if (c == '#') {
-            while (Peek(l) != '\n' && Peek(l) != '\r' && !IsAtEnd(l)) Advance(l);
-        } else {
-            break;
-        }
-    }
-}
-
-/* Token constructors */
-
-Token MakeToken(Lexer *l, TokenType type, const char *start) {
-    Token t = {
-        .type = type,
-        .start = start,
-        .len = (size_t)(l->input + l->pos - start),
-        .line = l->line,
-        .error = NULL,
-    };
-
+struct Token MakeToken(struct Lexer *l, unsigned int type) {
+    struct Token t;
+    t.type = type;
+    t.intType = TOKEN_INT_NONE;
+    t.start = l->start;
+    t.length = (int)(l->current - l->start);
+    t.line = l->line;
     return t;
 }
 
-Token ErrorToken(Lexer *l, const char *msg) {
-    Token t = {
-        .type = TOKEN_ERROR,
-        .start = NULL,
-        .len = 0,
-        .line = l->line,
-        .error = msg,
-    };
+struct Token MakeTokenInt(struct Lexer *l, unsigned int intType) {
+    struct Token t;
+    t.type = TOKEN_INT;
+    t.intType = intType;
+    t.start = l->start;
+    t.length = (int)(l->current - l->start);
+    t.line = l->line;
+    return t;
+}
 
+struct Token ErrorToken(struct Lexer *l, const char *msg) {
+    struct Token t;
+    t.type = TOKEN_ERROR;
+    t.start = msg;
+    t.length = (int)StrLen(msg);
+    t.line = l->line;
     return t;
 }
 
 /* Tokenization */
 
-Token ScanString(Lexer *l, char quote) {
-    const char *start = l->input + l->pos - 1;
+void SkipWhitespace(struct Lexer *l) {
+    for (;;) {
+        char c = Peek(l);
+        switch (c) {
+            case ' ':
+            case '\r':
+            case '\t':
+                Advance(l);
+                break;
 
-    int multiline = 0;
-    if (Peek(l) == quote && PeekNext(l) == quote) {
-        multiline = 1;
-        Advance(l);
-        Advance(l);
-    }
+            case '#':
+                // Comment
+                while (Peek(l) != '\n' && !IsAtEnd(l)) Advance(l);
+                Advance(l); // Skip this newline too
+                break;
 
-    while (!IsAtEnd(l)) {
-        char c = Advance(l);
-
-        if (!multiline && c == '\\' && quote == '\"') {
-            Advance(l);
-            continue;
-        }
-
-        if (c == quote) {
-            if (multiline) {
-                if (Peek(l) == quote && PeekNext(l) == quote) {
-                    Advance(l);
-                    Advance(l);
-                    return MakeToken(l, TOKEN_STRING, start);
-                }
-            } else {
-                return MakeToken(l, TOKEN_STRING, start);
-            }
+            default:
+                return;
         }
     }
-
-    return ErrorToken(l, "Unterminated string");
 }
 
-Token ScanNumberOrDatetime(Lexer *l) {
-    const char *start = l->input + l->pos -1;
-    int hasDash = 0, hasColon = 0;
-
-    if (Peek(l) == '+') {
+struct Token ScanString(struct Lexer *l, char quote) {
+    while (Peek(l) != quote && !IsAtEnd(l)) {
+        if (Peek(l) == '\n') l->line++;
         Advance(l);
     }
-
-    while (IsDigit(Peek(l)) || Peek(l) == '-' || Peek(l) == 'T' 
-        || Peek(l) == 'Z' || Peek(l) == '.') {
-        char c = Advance(l);
-        if (c == '-') hasDash = 1;
-        if (c == ':') hasColon = 1;
-    }
-
-    if (hasDash && hasColon) {
-        return MakeToken(l, TOKEN_DATETIME, start);
-    }
-
-    return MakeToken(l, TOKEN_NUMBER, start);
-}
-
-Token ScanIdentifier(Lexer *l) {
-    const char *start = l->input + l->pos - 1;
-
-    while (IsAlNum(Peek(l)) || Peek(l) == '_' || Peek(l) == '-') {
-        Advance(l);
-    }
-
-    size_t len = l->input + l->pos - start;
-
-    if (len == 4 && StrNCmp(start, "true", 4) == 0)
-        return MakeToken(l, TOKEN_BOOL, start);
-    if (len == 5 && StrNCmp(start, "false", 5) == 0)
-        return MakeToken(l, TOKEN_BOOL, start);
-
-    return MakeToken(l, TOKEN_KEY, start);
-}
-
-Token NextToken(Lexer *l) {
-    SkipWhiteSpace(l);
 
     if (IsAtEnd(l)) {
-        return MakeToken(l, TOKEN_EOF, l->input + l->pos);
+        return ErrorToken(l, "Unterminated string");
     }
 
-    const char *start = l->input + l->pos;
-    char c = Advance(l);
+    Advance(l);
+    if (quote == '\'') return MakeToken(l, TOKEN_STRING_LITERAL);
+    else return MakeToken(l, TOKEN_STRING);
+}
+
+struct Token ScanIdentifier(struct Lexer *l) {
+    while (IsAlphaOrSeparator(Peek(l)) || IsDigit(Peek(l))) {
+        Advance(l);
+    }
+
+    int length = l->current - l->start;
+
+    if (length == 4 && StrNCmp(l->start, "true", 4) == 0)
+        return MakeToken(l, TOKEN_TRUE);
+    if (length == 5 && StrNCmp(l->start, "false", 5) == 0)
+        return MakeToken(l, TOKEN_FALSE);
+
+    return MakeToken(l, TOKEN_IDENTIFIER);
+}
+
+struct Token ScanNumberOrDate(struct Lexer *l) {
+    int isFloat = 0;
+    int isDate = 0;
+    int hasSign = 0;
+
+    int intType = TOKEN_INT_DEC;
+
+    if (Peek(l) == '-' || Peek(l) == '+') {
+        hasSign = 1;
+        Advance(l);
+    }
+
+    if (Peek(l) == '0') {
+        Advance(l);
+        switch (Peek(l)) {
+            case 'b':
+                intType = TOKEN_INT_BIN;
+                Advance(l);
+                break;
+            case 'o':
+                intType = TOKEN_INT_OCT;
+                Advance(l);
+                break;
+            case 'x':
+                intType = TOKEN_INT_HEX;
+                Advance(l);
+                break;
+        }
+    }
+
+    while (IsDigit(Peek(l)) || (IsXDigit(Peek(l)) && intType == TOKEN_INT_HEX)) Advance(l);
+
+    // float
+    if (Peek(l) == '.' && IsDigit(PeekNext(l))) {
+        if (intType != TOKEN_INT_DEC) return ErrorToken(l, "Float must be base 10");
+        isFloat = 1;
+        Advance(l);
+        while (IsDigit(Peek(l))) Advance(l);
+    }
+
+    if (Peek(l) == '-') {
+        isDate = 1;
+        while (IsAlNum(Peek(l)) || StrChr("-:TZ", Peek(l))) {
+            Advance(l);
+        }
+    }
+
+    if (isDate) return MakeToken(l, TOKEN_DATE);
+    if (isFloat) return MakeToken(l, TOKEN_FLOAT);
+    return MakeTokenInt(l, intType);
+}
+
+struct Token NextToken(struct Lexer *l) {
+    SkipWhitespace(l);
+
+    l->start = l->current;
+
+    if (IsAtEnd(l)) return MakeToken(l, TOKEN_EOF);
+
+    char c = Peek(l);
+
+    if (IsAlpha(c)) return ScanIdentifier(l);
+    if (IsDigit(c) || c == '-' || c == '+') return ScanNumberOrDate(l);
+
+    c = Advance(l);
 
     switch (c) {
-        case '\n': return MakeToken(l, TOKEN_NEWLINE, start);
-        case '=': return MakeToken(l, TOKEN_EQUALS, start);
-        case '.': return MakeToken(l, TOKEN_DOT, start);
-        case ',': return MakeToken(l, TOKEN_COMMA, start);
-        case '[': return MakeToken(l, TOKEN_LBRACKET, start);
-        case ']': return MakeToken(l, TOKEN_RBRACKET, start);
+        case '[': return MakeToken(l, TOKEN_LBRACKET);
+        case ']': return MakeToken(l, TOKEN_RBRACKET);
+        case '{': return MakeToken(l, TOKEN_LBRACE);
+        case '}': return MakeToken(l, TOKEN_RBRACE);
+        case '=': return MakeToken(l, TOKEN_EQUAL);
+        case ',': return MakeToken(l, TOKEN_COMMA);
 
-        case '\"':
         case '\'':
+        case '\"':
             return ScanString(l, c);
+
+        case '\n':
+            l->line++;
+            return MakeToken(l, TOKEN_NEWLINE);
     }
 
-    if (IsDigit(c) || (((c == '-') || (c == '+')) && IsDigit(Peek(l)))) {
-        return ScanNumberOrDatetime(l);
-    }
-
-    if (IsAlpha(c) || c == '_' || c == '-') {
-        return ScanIdentifier(l);
-    }
-
-    return  ErrorToken(l, "Unexpected character");
+    return ErrorToken(l, "Unexpected character");
 }

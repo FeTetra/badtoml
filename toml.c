@@ -1,277 +1,144 @@
 #include "toml.h"
 #include "helper.h"
+#include "tokenizer.h"
 
-/* Parsing */
+/* Deserialization */
 
-static int TOMLParseSection(char *line, int size, char *buf) {
-    int i = Skip(line, size);
-
-    if (line[i] != '[') {
-        return TOML_PARSE_FAIL;
-    }
-
-    int j = 0;
-    while (i++ < size) {
-        if (line[i] == ']') {
-            if (i <= 1) {
-                return TOML_PARSE_FAIL;
-            }
-            buf[j] = '\0';
-            return TOML_SUCCESS;
+// Return 1 if we reach a newline token without 
+// hitting any other tokens on the way, return 0 otherwise
+int TOMLNextLine(struct Lexer *l) {
+    int result = 1;
+    for (;;) {
+        struct Token current = NextToken(l);
+        if (current.type != TOKEN_NEWLINE && current.type != TOKEN_EOF) {
+            result = 0;
+            continue;
         }
 
-        buf[j++] = line[i];
+        break;
     }
 
-    return TOML_PARSE_FAIL;
+    return result;
 }
 
-// TODO: Make this function return an error instead of i, we can skip the data this reads later anyways
-// TODO: Make this use MemCpy or StrCpy function
-
-static int TOMLParseKey(char *key, int size, struct TOMLEntry *entry) {
-    int i = 0;
-
-    while(i < size && IsAlpha(key[i])) {
-        if (i < MAX_KEY_SIZE) {
-            entry->key[i] = key[i]; // Copy key to buffer
-        }
-
-        i++;
+void TOMLCopyValue(struct Token *t, struct TOMLEntry *entry) {
+    switch (t->type) {
+        case TOKEN_STRING_LITERAL:
+        case TOKEN_STRING:
+            entry->valueType = TOML_TYPE_STRING;
+            MemCpy(entry->value.strVal, (t->start + 1), (t->length - 2)); // Trim quotes
+            entry->value.strVal[t->length] = '\0';
+            break;
+        case TOKEN_INT:
+            if (t->intType == TOKEN_INT_DEC) entry->valueType = TOML_TYPE_INT;
+            if (t->intType == TOKEN_INT_BIN) entry->valueType = TOML_TYPE_INT_BIN;
+            if (t->intType == TOKEN_INT_OCT) entry->valueType = TOML_TYPE_INT_OCT;
+            if (t->intType == TOKEN_INT_HEX) entry->valueType = TOML_TYPE_INT_HEX;
+            entry->value.intVal = StrToInt(t->start, t->length + 1, t->intType);
+            break;
+        case TOKEN_FLOAT:
+            entry->valueType = TOML_TYPE_FLOAT;
+            entry->value.floatVal = StrToFloat(t->start, t->length + 1);
+            break;
+        case TOKEN_TRUE:
+            entry->valueType = TOML_TYPE_BOOL;
+            entry->value.boolVal = 1;
+            break;
+        case TOKEN_FALSE:
+            entry->valueType = TOML_TYPE_BOOL;
+            entry->value.boolVal = 0;
+            break;
+        case TOKEN_LBRACKET:
+            return; // TODO: Implement lists
+        case TOKEN_LBRACE:
+            return; // TODO: Implement tables (dont wanna)
+        case TOKEN_DATE:
+            return; // TODO: Implement dates
+        default:
+            return; // FAIL
     }
-
-    entry->key[i] = '\0';
-    return i;
 }
 
-static int TOMLGetValueType(char *value, int size) {
-    int i = 0;
-    int result = TOML_INVALID;
+int TOMLReadLine(struct Lexer *l, struct TOMLEntry *entry) {
+    struct Token current = NextToken(l);
+    unsigned int result = TOML_ERRNO_INVALID;
 
-    if (value[0] == '\"') {
-        while (++i < size) {
-            if (value[i] == '\"') {
-                result = TOML_STRING;
-                i++;
-                break;
-            }
-        }
+    if (result == TOML_ERRNO_INVALID && current.type == TOKEN_EOF) 
+        result = TOML_ERRNO_EOF; // END
+
+    if (result == TOML_ERRNO_INVALID && current.type == TOKEN_LBRACKET) {
+        current = NextToken(l);
+        if (current.type != TOKEN_IDENTIFIER)
+            result = TOML_ERRNO_PARSE_FAIL; // FAIL, not a section
+        if (NextToken(l).type != TOKEN_RBRACKET)
+            result = TOML_ERRNO_PARSE_FAIL; // FAIL, not a section
+
+        MemCpy(entry->section, current.start, current.length); // Copy section
+        entry->section[current.length] = '\0';
+
+        result = TOML_ERRNO_SECTION; // SUCCESS, read section
     }
 
-    if (value[0] == '\'') {
-        while (++i < size) {
-            if (value[i] == '\'') {
-                result = TOML_STRING_LITERAL;
-                i++;
-                break;
-            }
-        }
+    if (result == TOML_ERRNO_INVALID && current.type == TOKEN_IDENTIFIER) {
+        MemCpy(entry->key, current.start, current.length); // Copy key
+        entry->key[current.length] = '\0';
+
+        if (NextToken(l).type != TOKEN_EQUAL) 
+            result = TOML_ERRNO_PARSE_FAIL; // FAIL, not a key/value
+
+        current = NextToken(l);
+
+        TOMLCopyValue(&current, entry); // Copy value
+
+        result = TOML_ERRNO_SUCCESS; // SUCCESS, read key/value
     }
 
-    int skip = (value[0] == '-' || value[0] == '+');
-    if (IsDigit(value[skip])) { 
-        int decimalCount = 0;
-        int intType = TOML_INT;
-        i += skip;
+    if (!TOMLNextLine(l))
+        result = TOML_ERRNO_PARSE_FAIL;
 
-        if (!IsDigit(value[i + 1])) {
-            switch (value[i + 1]) {
-                case 'b':
-                    intType = TOML_INT_BIN;
-                    i += 2;
-                    break;
-                case 'o':
-                    intType = TOML_INT_OCT;
-                    i += 2;
-                    break;
-                case 'x':
-                    intType = TOML_INT_HEX;
-                    i += 2;
-                    break;
-            }
+    return result; // FAIL, invalid type
+}
+
+void TOMLReadBuffer(struct Lexer *l, struct TOMLEntry *entries, unsigned int count) {
+    char *currentSection = NULL;
+    unsigned int currentSectionLen = 0;
+    unsigned int i = 0;
+    while (i < count) {
+        int err = TOMLReadLine(l, &entries[i]);
+        if (err == TOML_ERRNO_PARSE_FAIL) {
+            entries[i].valueType = TOML_TYPE_INVALID; // TODO: Better error handling inside toml entries
         }
-        
-        while (i < size) {
-            if (!IsDigit(value[i])) {
-                if (value[i] == '.' && intType == TOML_INT) {
-                    decimalCount++;
-                    i++;
-                    continue;
-                } else if (intType == TOML_INT_HEX && IsXDigit(value[i])) {
-                    i++;
-                    continue;
-                } else if (IsSpace(value[i]) || value[i] == '\0') {
-                    break; 
-                } 
-
-                result = TOML_INVALID;
-                break;
-            }
+        if (err == TOML_ERRNO_SECTION && (currentSection == NULL || StrNCmp(currentSection, entries[i].section, currentSectionLen) != 0)) {
+            currentSection = entries[i].section;
+            currentSectionLen = StrLen(entries[i].section);
+        } else {
+            MemCpy(entries[i].section, currentSection, MAX_SECTION_SIZE);
             i++;
         }
-
-        if (i <= size) {
-            if (decimalCount == 1) {
-                result = TOML_FLOAT;
-            } else if (decimalCount == 0) {
-                result = intType;
-            }
-        }
+        if (err == TOML_ERRNO_EOF) break;
     }
 
-    if (StrNCmp(value, "true", 4) >= 0) {
-        i += 5;
-        result = TOML_BOOL;
-    } else if (StrNCmp(value, "false", 5) >= 0) {
-        i += 6;
-        result = TOML_BOOL;
-    }
-
-    while (i < size && result != TOML_INVALID) {
-        if (!IsSpace(value[i]) && value[i] != '\0') {
-            result = TOML_INVALID;
-            return result;
-        }
-        i++;
-    }
-
-    return result;
-}
-
-static int TOMLParseValue(char *value, int size, struct TOMLEntry *entry) {
-    int i = 0;
-
-    switch (entry->valueType) {
-        case TOML_INT:
-            entry->value.intVal = StrToLL(value, size, 10);
-            break;
-        case TOML_INT_BIN:
-            entry->value.intVal = StrToLL(value, size, 2);
-            break;
-        case TOML_INT_OCT:
-            entry->value.intVal = StrToLL(value, size, 8);
-            break;
-        case TOML_INT_HEX:
-            entry->value.intVal = StrToLL(value, size, 16);
-            break;
-        case TOML_BOOL:
-            entry->value.boolVal = StrNCmp(value, "true", 4) <= 0; // Assume its false if it's bool type and not true
-            break;
-        case TOML_FLOAT:
-            entry->value.floatVal = StrToFloat(value, size);
-            break;
-        case TOML_STRING:
-            while (++i < MAX_VALUE_SIZE && i < size && value[i] != '\"') {
-                entry->value.strVal[i - 1] = value[i];
-            }
-            entry->value.strVal[i - 1] = '\0';
-            break;
-        case TOML_STRING_LITERAL: // Need to actually make a distinction between strings and string literals
-            while (++i < MAX_VALUE_SIZE && i < size && value[i] != '\'') {
-                entry->value.strVal[i - 1] = value[i];
-            }
-            entry->value.strVal[i - 1] = '\0';
-            break;
-    }
-
-    return TOML_SUCCESS;
-}
-
-static int TOMLParseKeyValue(char *line, int size, struct TOMLEntry *entry) {
-    int i = 0;
-
-    i += TOMLParseKey(&line[i], (size - i), entry); 
-
-    i += Skip(&line[i], (size - i));
-
-    if (line[i++] != '=') {
-        return TOML_PARSE_FAIL; // No value
-    }
-
-    i += Skip(&line[i], (size - i));
- 
-    entry->valueType = TOMLGetValueType(&line[i], (size - i));
-
-    if (entry->valueType == TOML_INVALID) {
-        return TOML_PARSE_FAIL;
-    }
- 
-    if (TOMLParseValue(&line[i], (size - i), entry) != TOML_SUCCESS) {
-        return TOML_PARSE_FAIL;
-    }
-    
-    return TOML_SUCCESS;
-}
-
-static int TOMLParseLine(char *line, int size, struct TOMLEntry *entry) {
-    int i = Skip(line, size);
-
-    if (line[i] == '#') {
-        return TOML_PARSE_COMMENT;
-    }
-    if (line[i] == '[') {
-        return TOML_PARSE_SECTION;
-    }
-
-    return TOMLParseKeyValue(line, size, entry);
-}
-
-int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count) {
-    int i = 0;
-    int j = 0;
-    int remaining = 0;
-    int result = TOML_SUCCESS;
-    char currentSection[MAX_SECTION_SIZE] = "root";
-
-    while (i < size && j < count) {
-        i += Skip(&file[i], (size - i));
-        if (file[i] == '\0') {
-            break; // In case of trailing newlines
-        }
-
-        remaining = NextLine(&file[i], (size - i)); 
-
-        int error = TOMLParseLine(&file[i], remaining, &entries[j]);
-
-        switch (error) {
-            case TOML_SUCCESS:
-                MemCpy(entries[j].section, currentSection, MAX_SECTION_SIZE);
-                j++;
-                break;
-            case TOML_PARSE_COMMENT:
-                break;
-            case TOML_PARSE_SECTION:
-                TOMLParseSection(&file[i], size, currentSection);
-                break;
-            case TOML_PARSE_FAIL:
-                result = TOML_PARSE_FAIL;
-                break;
-        }
-
-        i += remaining;
-    }
-
-    return result;
+    return;
 }
 
 /* Serialization */
 
 int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
     switch (entry.valueType) {
-        case TOML_INT:
+        case TOML_TYPE_INT:
             SIntToStr(buf, size, entry.value.intVal, 10);
             break;
-        case TOML_INT_BIN:
+        case TOML_TYPE_INT_BIN:
             SIntToStr(buf, size, entry.value.intVal, 2);
             break;
-        case TOML_INT_OCT:
+        case TOML_TYPE_INT_OCT:
             SIntToStr(buf, size, entry.value.intVal, 8);
             break;
-        case TOML_INT_HEX:
+        case TOML_TYPE_INT_HEX:
             SIntToStr(buf, size, entry.value.intVal, 16);
             break;
 
-        case TOML_BOOL:
+        case TOML_TYPE_BOOL:
             if (entry.value.boolVal) {
                 MemCpy(buf, "true", 4);
             }
@@ -280,13 +147,15 @@ int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
             }
             break;
 
-        case TOML_STRING:
-        case TOML_STRING_LITERAL:; // yikes
+        case TOML_TYPE_STRING:
+        case TOML_TYPE_LITERAL:; // yikes
+            *buf++ = '"'; // evil as hell
             int valueSize = StrLen(entry.value.strVal);
             MemCpy(buf, entry.value.strVal, valueSize);
+            *(buf + valueSize) = '"'; // gross
             break;
         
-        case TOML_FLOAT:
+        case TOML_TYPE_FLOAT:
             FloatToStr(buf, size, entry.value.floatVal, FLOAT_ROUND_WRITE);
             break;
     }
@@ -294,23 +163,26 @@ int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
     return 1;
 }
 
-int TOMLCreateKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
+int TOMLMakeKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
     int i = 0;
 
     MemSet(buf, '\0', size); // Laziness
 
+    // TODO: Handle overflow cases
     int keySize = StrLen(entry.key);
-    MemCpy(&buf[i], entry.key, keySize);
-    i += keySize;
-    MemCpy(&buf[i], " = ", 3);
-    i += 3;
+    if (keySize + 3 < size) {
+        MemCpy(&buf[i], entry.key, keySize);
+        i += keySize;
+        MemCpy(&buf[i], " = ", 3);
+        i += 3;
+    }
 
     TOMLCreateValueFromEntry(entry, &buf[i], (size - i));
 
     return 1;
 }
 
-int TOMLCreateFileFromEntries(struct TOMLEntry *entries, int count, char *buf, int size) {
+int TOMLMakeBufFromEntries(struct TOMLEntry *entries, int count, char *buf, int size) {
     int i = 0;
     int j = 0;
 
@@ -323,14 +195,16 @@ int TOMLCreateFileFromEntries(struct TOMLEntry *entries, int count, char *buf, i
         int sectionSize = StrLen(entries[j].section);
         if (currentSection == NULL || StrNCmp(entries[j].section, currentSection, sectionSize) > 0) {
             buf[i++] = '[';
-            MemCpy(&buf[i], entries[j].section, sectionSize);
-            currentSection = &buf[i];
-            i += sectionSize;
-            MemCpy(&buf[i], "]\n", 2);
-            i += 2;
+            if (sectionSize + 2 < size) {
+                MemCpy(&buf[i], entries[j].section, sectionSize);
+                currentSection = &buf[i];
+                i += sectionSize;
+                MemCpy(&buf[i], "]\n", 2);
+                i += 2;
+            }
         }
 
-        TOMLCreateKeyValueFromEntry(entries[j], &buf[i], (size - i));
+        TOMLMakeKeyValueFromEntry(entries[j], &buf[i], (size - i));
         while (buf[i] != '\0' && i < size) { i++; }
         buf[i++] = '\n';
         j++;
@@ -338,4 +212,3 @@ int TOMLCreateFileFromEntries(struct TOMLEntry *entries, int count, char *buf, i
 
     return 1;
 }
-

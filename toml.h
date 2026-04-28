@@ -2,6 +2,7 @@
 #define TOML_H
 
 #include "helper.h"
+#include "tokenizer.h"
 
 #define MAX_SECTION_SIZE 64
 #define MAX_KEY_SIZE 64
@@ -22,30 +23,32 @@ struct TOMLEntry {
 };
 
 enum TOMLErrno {
-    TOML_SUCCESS,
-    TOML_PARSE_COMMENT,
-    TOML_PARSE_SECTION,
-    TOML_PARSE_FAIL,
-    //...
+    TOML_ERRNO_SUCCESS,
+    TOML_ERRNO_PARSE_FAIL,
+    TOML_ERRNO_EOF,
+    TOML_ERRNO_SECTION,
+    TOML_ERRNO_INVALID,
 };
 
 enum TOMLValueType {
-    TOML_INT,
-    TOML_INT_BIN,
-    TOML_INT_OCT,
-    TOML_INT_HEX,
-    TOML_BOOL,
-    TOML_FLOAT,
-    TOML_STRING,
-    TOML_STRING_LITERAL,
-    TOML_INVALID,
+    TOML_TYPE_INT,
+    TOML_TYPE_INT_BIN,
+    TOML_TYPE_INT_OCT,
+    TOML_TYPE_INT_HEX,
+    TOML_TYPE_BOOL,
+    TOML_TYPE_FLOAT,
+    TOML_TYPE_STRING,
+    TOML_TYPE_LITERAL,
+    TOML_TYPE_INVALID,
     //...
 };
 
-int TOMLParseFileBuf(char *file, int size, struct TOMLEntry *entries, int count);
+int TOMLMakeKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size);
 
-int TOMLCreateKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size);
+int TOMLMakeBufFromEntries(struct TOMLEntry *entries, int count, char *buf, int size);
 
-int TOMLCreateFileFromEntries(struct TOMLEntry *entries, int count, char *buf, int size);
+int TOMLReadLine(struct Lexer *l, struct TOMLEntry *entry);
+
+void TOMLReadBuffer(struct Lexer *l, struct TOMLEntry *entries, unsigned int count);
 
 #endif

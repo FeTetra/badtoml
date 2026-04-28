@@ -8,7 +8,7 @@
     need to rename any calls of these to the standard function names.
     Example: StrLen(someStr); -> strlen(someStr);
 
-    Exceptions: StrToLL() is not compatible with strtoll()
+    Exceptions: StrToInt() is not compatible with strtoll()
 */
 
 #define NULL ((void *)0)
@@ -57,10 +57,27 @@ static inline unsigned int StrLen(const char *str) {
     return i;
 }
 
+static inline char *StrChr(char *str, int ch) {
+    ch = (unsigned char)ch;
+    unsigned int len = StrLen(str);
+    unsigned int i = 0;
+
+    while (i < len) {
+        if (str[i] == ch) return &str[i];
+        i++;
+    }
+
+    return (char *)NULL;
+}
+
 static inline int StrNCmp(const char *lhs, const char *rhs, unsigned int count) {
     unsigned int i = 0;
 
     while (i < count && lhs[i] && (lhs[i] == rhs[i])) { i++; }
+
+    if (i == count) {
+        return 0; // Apparently a strncmp edge case
+    }
 
     return (const unsigned char)lhs[i] - (const unsigned char)rhs[i];
 }
@@ -84,20 +101,6 @@ static inline void *MemSet(void *dest, int ch, unsigned int count) {
     }
 
     return dest;
-}
-
-static inline unsigned int Skip(char *string, unsigned int size) {
-    unsigned int i = 0;
-
-    while (i < size && string[i] != '\0') { 
-        if (!IsSpace(string[i])) {
-            break;
-        }
-        
-        i++;
-    };
-
-    return i;
 }
 
 static inline double PowerD (double x, int y)
@@ -161,8 +164,8 @@ static inline void SIntToStr(char *buf, int bufSize, long long n, int base) {
 }
 
 // Not quite the same as most implementations, may never change
-static inline long long StrToLL(char *str, int bufSize, int base) {
-    char *p = str;
+static inline long long StrToInt(const char *str, int bufSize, int base) {
+    const char *p = str;
     int i = 0;
 
     int sign = 0;
@@ -203,7 +206,10 @@ static inline long long StrToLL(char *str, int bufSize, int base) {
 static inline int FloatToStr(char *buf, int bufSize, float n, int round) {
     char *p = buf;
 
-    int sign = 0;
+    if (n < 0) {
+        n *= -1;
+        *p++ = '-';
+    }
 
     long long iPart = (long long)n;
     IntToStr(p, bufSize, iPart, (n < 0), 10); // Always use base 10?
@@ -221,9 +227,9 @@ static inline int FloatToStr(char *buf, int bufSize, float n, int round) {
 }
 
 
-static inline double StrToFloat(char *buf, int bufSize)
+static inline double StrToFloat(const char *buf, int bufSize)
 {
-    char *p = buf;
+    const char *p = buf;
     int sign = 1;
 
     if (*p == '-') {
@@ -238,7 +244,7 @@ static inline double StrToFloat(char *buf, int bufSize)
         i++;
     }
 
-    double before = (double)StrToLL(p, i, 10);
+    double before = (double)StrToInt(p, i, 10);
     p += i;
 
     if (*p != '.') {
@@ -251,31 +257,13 @@ static inline double StrToFloat(char *buf, int bufSize)
         j++;
     }
 
-    double after = (double)StrToLL(p, j, 10);
+    double after = (double)StrToInt(p, j, 10);
     double scale = 1.0;
     for (int k = 0; k < j; k++) {
         scale *= 10.0;
     }
 
     return sign * (before + after / scale);
-}
-
-static inline unsigned int NextLine(char *buf, unsigned int size) {
-    for (unsigned int i = 0; i <= size; i++) {
-        if (buf[i] == '\n') {
-            return i + 1;
-        } else if (buf[i] == '\r') {
-            if (i + 1 == '\n') {
-                return i + 2;
-            } else {
-                return i + 1; // Might as well return, only using cr has technically existed
-            }
-        } else if (buf[i] == '\0') {
-            return i;
-        }
-    }
-
-    return 0;
 }
 
 #endif

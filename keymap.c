@@ -1,6 +1,5 @@
 #include "keymap.h"
 #include "toml.h"
-#include <stdio.h>
  
 int TOMLApplyEntriesToKeyMap(struct TOMLEntry *entries, int entryCount, struct TOMLKeyMap *keyMap, int mapCount) {
     for (int i = 0; i < mapCount; i++) {
@@ -19,27 +18,27 @@ int TOMLApplyEntriesToKeyMap(struct TOMLEntry *entries, int entryCount, struct T
             }
 
             switch (keyMap[i].valueType) {
-                case TOML_INT:
-                case TOML_INT_BIN:
-                case TOML_INT_OCT:
-                case TOML_INT_HEX:
+                case TOML_TYPE_INT:
+                case TOML_TYPE_INT_BIN:
+                case TOML_TYPE_INT_OCT:
+                case TOML_TYPE_INT_HEX:
                     *(long long *)keyMap[i].targetValue = entries[j].value.intVal;
                     break;
-                case TOML_BOOL:
+                case TOML_TYPE_BOOL:
                     *(int *)keyMap[i].targetValue = entries[j].value.boolVal;
                     break;
-                case TOML_FLOAT:
+                case TOML_TYPE_FLOAT:
                     *(double *)keyMap[i].targetValue = entries[j].value.floatVal;
                     break;
-                case TOML_STRING:
-                case TOML_STRING_LITERAL:
+                case TOML_TYPE_STRING:
+                case TOML_TYPE_LITERAL:
                     *(char **)keyMap[i].targetValue = entries[j].value.strVal;
                     break;
-                case TOML_INVALID:
+                case TOML_TYPE_INVALID:
                     break;
             }
         }
     }
 
-    return TOML_SUCCESS;
+    return TOML_ERRNO_SUCCESS;
 }
