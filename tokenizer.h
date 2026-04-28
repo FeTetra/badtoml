@@ -1,9 +1,11 @@
 #ifndef TOKENIZER_H
 #define TOKENIZER_H
 
-#include "helper.h"
+#include <stddef.h>
+#include <string.h>
+#include <ctype.h>
 
-enum TokenType{
+typedef enum {
     TOKEN_LBRACKET,
     TOKEN_RBRACKET,
     TOKEN_LBRACE,
@@ -23,59 +25,59 @@ enum TokenType{
     TOKEN_NEWLINE,
     TOKEN_EOF,
     TOKEN_ERROR
-};
+} TokenType;
 
-enum TokenIntType {
+typedef enum {
     TOKEN_INT_NONE = 0,
     TOKEN_INT_BIN = 2,
     TOKEN_INT_OCT = 8,
     TOKEN_INT_DEC = 10,
     TOKEN_INT_HEX = 16,
-};
+} TokenIntType;
 
-struct Token {
-    unsigned int type;
-    unsigned int intType;
+typedef struct {
+    TokenType type;
+    TokenIntType intType;
     const char *start;
-    int length;
+    size_t length;
     int line;
-};
+} Token;
 
-struct Lexer {
+typedef struct {
     const char *start;
     const char *current;
     int line;
-};
+} Lexer;
 
 /* Low-level lexer functions */
 
-int IsAtEnd(struct Lexer *l);
+int IsAtEnd(Lexer *l);
 
-char Peek(struct Lexer *l);
+char Peek(Lexer *l);
 
-char PeekNext(struct Lexer *l);
+char PeekNext(Lexer *l);
 
-char Advance(struct Lexer *l);
+char Advance(Lexer *l);
 
-void SkipWhiteSpace(struct Lexer *l);
+void SkipWhiteSpace(Lexer *l);
 
 /* struct Lexer constructors */
-struct Lexer MakeLexer(char *buf);
+Lexer MakeLexer(char *buf);
 
 /* struct Token constructors */
 
-struct Token MakeToken(struct Lexer *l, unsigned int type);
+Token MakeToken(Lexer *l, TokenType type);
 
-struct Token ErrorToken(struct Lexer *l, const char *msg);
+Token ErrorToken(Lexer *l, const char *msg);
 
 /* Tokenization */
 
-struct Token ScanString(struct Lexer *l, char quote);
+Token ScanString(Lexer *l, char quote);
 
-struct Token ScanNumberOrDatetime(struct Lexer *l);
+Token ScanNumberOrDatetime(Lexer *l);
 
-struct Token ScanIdentifier(struct Lexer *l);
+Token ScanIdentifier(Lexer *l);
 
-struct Token NextToken(struct Lexer *l);
+Token NextToken(Lexer *l);
 
 #endif //TOKENIZER_H

@@ -1,15 +1,13 @@
 #include "toml.h"
-#include "helper.h"
-#include "tokenizer.h"
 
 /* Deserialization */
 
 // Return 1 if we reach a newline token without 
 // hitting any other tokens on the way, return 0 otherwise
-int TOMLNextLine(struct Lexer *l) {
+int TOMLNextLine(Lexer *l) {
     int result = 1;
     for (;;) {
-        struct Token current = NextToken(l);
+        Token current = NextToken(l);
         if (current.type != TOKEN_NEWLINE && current.type != TOKEN_EOF) {
             result = 0;
             continue;
@@ -21,12 +19,12 @@ int TOMLNextLine(struct Lexer *l) {
     return result;
 }
 
-void TOMLCopyValue(struct Token *t, struct TOMLEntry *entry) {
+void TOMLCopyValue(Token *t, TOMLEntry *entry) {
     switch (t->type) {
         case TOKEN_STRING_LITERAL:
         case TOKEN_STRING:
             entry->valueType = TOML_TYPE_STRING;
-            MemCpy(entry->value.strVal, (t->start + 1), (t->length - 2)); // Trim quotes
+            memcpy(entry->value.strVal, (t->start + 1), (t->length - 2)); // Trim quotes
             entry->value.strVal[t->length] = '\0';
             break;
         case TOKEN_INT:
@@ -59,9 +57,9 @@ void TOMLCopyValue(struct Token *t, struct TOMLEntry *entry) {
     }
 }
 
-int TOMLReadLine(struct Lexer *l, struct TOMLEntry *entry) {
-    struct Token current = NextToken(l);
-    unsigned int result = TOML_ERRNO_INVALID;
+TOMLErrno TOMLReadLine(Lexer *l, TOMLEntry *entry) {
+    Token current = NextToken(l);
+    TOMLErrno result = TOML_ERRNO_INVALID;
 
     if (result == TOML_ERRNO_INVALID && current.type == TOKEN_EOF) 
         result = TOML_ERRNO_EOF; // END
@@ -73,14 +71,14 @@ int TOMLReadLine(struct Lexer *l, struct TOMLEntry *entry) {
         if (NextToken(l).type != TOKEN_RBRACKET)
             result = TOML_ERRNO_PARSE_FAIL; // FAIL, not a section
 
-        MemCpy(entry->section, current.start, current.length); // Copy section
+        memcpy(entry->section, current.start, current.length); // Copy section
         entry->section[current.length] = '\0';
 
         result = TOML_ERRNO_SECTION; // SUCCESS, read section
     }
 
     if (result == TOML_ERRNO_INVALID && current.type == TOKEN_IDENTIFIER) {
-        MemCpy(entry->key, current.start, current.length); // Copy key
+        memcpy(entry->key, current.start, current.length); // Copy key
         entry->key[current.length] = '\0';
 
         if (NextToken(l).type != TOKEN_EQUAL) 
@@ -99,7 +97,7 @@ int TOMLReadLine(struct Lexer *l, struct TOMLEntry *entry) {
     return result; // FAIL, invalid type
 }
 
-void TOMLReadBuffer(struct Lexer *l, struct TOMLEntry *entries, unsigned int count) {
+void TOMLReadBuffer(Lexer *l, TOMLEntry *entries, size_t count) {
     char *currentSection = NULL;
     unsigned int currentSectionLen = 0;
     unsigned int i = 0;
@@ -108,11 +106,11 @@ void TOMLReadBuffer(struct Lexer *l, struct TOMLEntry *entries, unsigned int cou
         if (err == TOML_ERRNO_PARSE_FAIL) {
             entries[i].valueType = TOML_TYPE_INVALID; // TODO: Better error handling inside toml entries
         }
-        if (err == TOML_ERRNO_SECTION && (currentSection == NULL || StrNCmp(currentSection, entries[i].section, currentSectionLen) != 0)) {
+        if (err == TOML_ERRNO_SECTION && (currentSection == NULL || strncmp(currentSection, entries[i].section, currentSectionLen) != 0)) {
             currentSection = entries[i].section;
-            currentSectionLen = StrLen(entries[i].section);
+            currentSectionLen = strlen(entries[i].section);
         } else {
-            MemCpy(entries[i].section, currentSection, MAX_SECTION_SIZE);
+            memcpy(entries[i].section, currentSection, MAX_SECTION_SIZE);
             i++;
         }
         if (err == TOML_ERRNO_EOF) break;
@@ -123,7 +121,7 @@ void TOMLReadBuffer(struct Lexer *l, struct TOMLEntry *entries, unsigned int cou
 
 /* Serialization */
 
-int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
+int TOMLCreateValueFromEntry(TOMLEntry entry, char *buf, size_t size) {
     switch (entry.valueType) {
         case TOML_TYPE_INT:
             SIntToStr(buf, size, entry.value.intVal, 10);
@@ -140,40 +138,43 @@ int TOMLCreateValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
 
         case TOML_TYPE_BOOL:
             if (entry.value.boolVal) {
-                MemCpy(buf, "true", 4);
+                memcpy(buf, "true", 4);
             }
             else {
-                MemCpy(buf, "false", 5);
+                memcpy(buf, "false", 5);
             }
             break;
 
         case TOML_TYPE_STRING:
         case TOML_TYPE_LITERAL:; // yikes
             *buf++ = '"'; // evil as hell
-            int valueSize = StrLen(entry.value.strVal);
-            MemCpy(buf, entry.value.strVal, valueSize);
+            size_t valueSize = strlen(entry.value.strVal);
+            memcpy(buf, entry.value.strVal, valueSize);
             *(buf + valueSize) = '"'; // gross
             break;
         
         case TOML_TYPE_FLOAT:
             FloatToStr(buf, size, entry.value.floatVal, FLOAT_ROUND_WRITE);
             break;
+
+        default:
+            return 0; // TODO: Handle this PLEASE
     }
 
     return 1;
 }
 
-int TOMLMakeKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
-    int i = 0;
+int TOMLMakeKeyValueFromEntry(TOMLEntry entry, char *buf, size_t size) {
+    size_t i = 0;
 
-    MemSet(buf, '\0', size); // Laziness
+    memset(buf, '\0', size); // Laziness
 
     // TODO: Handle overflow cases
-    int keySize = StrLen(entry.key);
+    size_t keySize = strlen(entry.key);
     if (keySize + 3 < size) {
-        MemCpy(&buf[i], entry.key, keySize);
+        memcpy(&buf[i], entry.key, keySize);
         i += keySize;
-        MemCpy(&buf[i], " = ", 3);
+        memcpy(&buf[i], " = ", 3);
         i += 3;
     }
 
@@ -182,24 +183,24 @@ int TOMLMakeKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size) {
     return 1;
 }
 
-int TOMLMakeBufFromEntries(struct TOMLEntry *entries, int count, char *buf, int size) {
-    int i = 0;
-    int j = 0;
+int TOMLMakeBufFromEntries(TOMLEntry *entries, size_t count, char *buf, size_t size) {
+    size_t i = 0;
+    size_t j = 0;
 
     char *currentSection = NULL;
 
-    MemSet(buf, '\0', size); // Double laziness
+    memset(buf, '\0', size); // Double laziness
 
     // This is all so ugly
     while (j < count && i < size) {
-        int sectionSize = StrLen(entries[j].section);
-        if (currentSection == NULL || StrNCmp(entries[j].section, currentSection, sectionSize) > 0) {
+        size_t sectionSize = strlen(entries[j].section);
+        if (currentSection == NULL || strncmp(entries[j].section, currentSection, sectionSize) > 0) {
             buf[i++] = '[';
             if (sectionSize + 2 < size) {
-                MemCpy(&buf[i], entries[j].section, sectionSize);
+                memcpy(&buf[i], entries[j].section, sectionSize);
                 currentSection = &buf[i];
                 i += sectionSize;
-                MemCpy(&buf[i], "]\n", 2);
+                memcpy(&buf[i], "]\n", 2);
                 i += 2;
             }
         }

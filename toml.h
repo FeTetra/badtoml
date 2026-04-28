@@ -1,36 +1,25 @@
 #ifndef TOML_H
 #define TOML_H
 
-#include "helper.h"
+#include <stddef.h>
+
 #include "tokenizer.h"
+#include "helper.h"
 
 #define MAX_SECTION_SIZE 64
 #define MAX_KEY_SIZE 64
 #define MAX_VALUE_SIZE 64 // For string values
 #define FLOAT_ROUND_WRITE 5 // Round to 5 places
 
-struct TOMLEntry {
-    char section[MAX_SECTION_SIZE];
-    char key[MAX_KEY_SIZE];
-
-    int valueType;
-    union {
-        char strVal[MAX_VALUE_SIZE];
-        int boolVal;
-        long long intVal;
-        double floatVal;
-    } value;
-};
-
-enum TOMLErrno {
+typedef enum {
     TOML_ERRNO_SUCCESS,
     TOML_ERRNO_PARSE_FAIL,
     TOML_ERRNO_EOF,
     TOML_ERRNO_SECTION,
     TOML_ERRNO_INVALID,
-};
+} TOMLErrno;
 
-enum TOMLValueType {
+typedef enum {
     TOML_TYPE_INT,
     TOML_TYPE_INT_BIN,
     TOML_TYPE_INT_OCT,
@@ -41,14 +30,27 @@ enum TOMLValueType {
     TOML_TYPE_LITERAL,
     TOML_TYPE_INVALID,
     //...
-};
+} TOMLValueType;
 
-int TOMLMakeKeyValueFromEntry(struct TOMLEntry entry, char *buf, int size);
+typedef struct {
+    char section[MAX_SECTION_SIZE];
+    char key[MAX_KEY_SIZE];
 
-int TOMLMakeBufFromEntries(struct TOMLEntry *entries, int count, char *buf, int size);
+    TOMLValueType valueType;
+    union {
+        char strVal[MAX_VALUE_SIZE];
+        int boolVal;
+        long long intVal;
+        double floatVal;
+    } value;
+} TOMLEntry;
 
-int TOMLReadLine(struct Lexer *l, struct TOMLEntry *entry);
+TOMLErrno TOMLReadLine(Lexer *l, TOMLEntry *entry);
 
-void TOMLReadBuffer(struct Lexer *l, struct TOMLEntry *entries, unsigned int count);
+void TOMLReadBuffer(Lexer *l, TOMLEntry *entries, size_t count);
+
+int TOMLMakeKeyValueFromEntry(TOMLEntry entry, char *buf, size_t size);
+
+int TOMLMakeBufFromEntries(TOMLEntry *entries, size_t count, char *buf, size_t size);
 
 #endif
