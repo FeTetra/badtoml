@@ -8,7 +8,7 @@ TOMLErrno TOMLApplyEntriesToKeyMap(TOMLEntry *entries, size_t entryCount, TOMLKe
         for (int j = 0; j < entryCount; j++) {
             char *currentEntryKey = entries[j].key;
             
-            if (strncmp(currentEntryKey, currentMapKey, currentMapKeyLen) > 0) {
+            if (strncmp(currentEntryKey, currentMapKey, currentMapKeyLen) != 0) {
                 continue;
             }
 
