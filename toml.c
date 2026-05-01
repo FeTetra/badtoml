@@ -25,7 +25,7 @@ void TOMLCopyValue(Token *t, TOMLEntry *entry) {
         case TOKEN_STRING:
             entry->valueType = TOML_TYPE_STRING;
             memcpy(entry->value.strVal, (t->start + 1), (t->length - 2)); // Trim quotes
-            entry->value.strVal[t->length] = '\0';
+            entry->value.strVal[t->length - 2] = '\0';
             break;
         case TOKEN_INT:
             if (t->intType == TOKEN_INT_DEC) entry->valueType = TOML_TYPE_INT;

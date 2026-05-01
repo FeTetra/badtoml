@@ -1,17 +1,15 @@
 #include "keymap.h"
+#include <string.h>
  
 TOMLErrno TOMLApplyEntriesToKeyMap(TOMLEntry *entries, size_t entryCount, TOMLKeyMap *keyMap, size_t mapCount) {
     for (int i = 0; i < mapCount; i++) {
-        char *currentMapKey = keyMap[i].key;
-        size_t currentMapKeyLen = strlen(currentMapKey);
-
         for (int j = 0; j < entryCount; j++) {
-            char *currentEntryKey = entries[j].key;
-            
-            if (strncmp(currentEntryKey, currentMapKey, currentMapKeyLen) != 0) {
+            if (strncmp(entries[i].section, keyMap[i].section, strlen(keyMap[i].section)) != 0) {
                 continue;
             }
-
+            if (strncmp(entries[j].key, keyMap[i].key, strlen(keyMap[i].key)) != 0) {
+                continue;
+            }
             if (entries[j].valueType != keyMap[i].valueType) {
                 continue;
             }
@@ -31,7 +29,8 @@ TOMLErrno TOMLApplyEntriesToKeyMap(TOMLEntry *entries, size_t entryCount, TOMLKe
                     break;
                 case TOML_TYPE_STRING:
                 case TOML_TYPE_LITERAL:
-                    *(char **)keyMap[i].targetValue = entries[j].value.strVal;
+                    if (entries[j].value.strVal[0]) // dont bother if the string is empty
+                        *(char **)keyMap[i].targetValue = entries[j].value.strVal;
                     break;
                 case TOML_TYPE_INVALID:
                     break;

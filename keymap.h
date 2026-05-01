@@ -4,7 +4,8 @@
 #include "toml.h"
 
 typedef struct {
-    char key[MAX_KEY_SIZE];
+    char *section;
+    char *key;
     TOMLValueType valueType;
     void *targetValue;
 } TOMLKeyMap;

@@ -1,107 +1,9 @@
 #ifndef HELPER_H
 #define HELPER_H
 
+#include <ctype.h>
+
 /* Helper functions */ 
-/* 
-    Many of these can be replaced with stdlib functions and more will be replaceable later.
-    These use the pascal casing convention, to replace these with stdlib funcions you will 
-    need to rename any calls of these to the standard function names.
-    Example: StrLen(someStr); -> strlen(someStr);
-
-    Exceptions: StrToInt() is not compatible with strtoll()
-*/
-
-#define NULL ((void *)0)
-
-static inline int IsDigit(int ch) {
-    return (ch >= '0' && ch <= '9');
-}
-
-static inline int IsXDigit(int ch) {
-    return (IsDigit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F'));
-}
-
-static inline int IsUpper(int ch) {
-    return (ch >= 'A' && ch <= 'Z');
-}
-
-static inline int IsLower(int ch) {
-    return (ch >= 'a' && ch <= 'z');
-}
-
-static inline int IsAlpha(int ch) {
-    return (IsUpper(ch) || IsLower(ch));
-}
-
-static inline int IsAlNum(int ch) {
-    return (IsAlpha(ch) || IsDigit(ch));
-}
-
-static inline int IsSpace(int ch) {
-    return (ch == '\t' || ch == '\n' || ch == '\v' || ch == '\f' || ch == '\r' || ch == ' ');
-}
-
-static inline int ToUpper(int ch) {
-    if (IsLower(ch)) {
-        return ch - 32;
-    }
-
-    return ch;
-}
-
-static inline unsigned int StrLen(const char *str) {
-    unsigned int i = 0;
-
-    while (str[i] != '\0') { i++; }
-
-    return i;
-}
-
-static inline char *StrChr(char *str, int ch) {
-    ch = (unsigned char)ch;
-    unsigned int len = StrLen(str);
-    unsigned int i = 0;
-
-    while (i < len) {
-        if (str[i] == ch) return &str[i];
-        i++;
-    }
-
-    return (char *)NULL;
-}
-
-static inline int StrNCmp(const char *lhs, const char *rhs, unsigned int count) {
-    unsigned int i = 0;
-
-    while (i < count && lhs[i] && (lhs[i] == rhs[i])) { i++; }
-
-    if (i == count) {
-        return 0; // Apparently a strncmp edge case
-    }
-
-    return (const unsigned char)lhs[i] - (const unsigned char)rhs[i];
-}
-
-static inline void *MemCpy(void *dest, const void *src, unsigned int count) {
-    char *d = (char*)dest;
-    const char *s = (char*)src;
-
-    for (unsigned int i = 0; i < count; i++ ) {
-        d[i] = s[i];
-    }
-
-    return dest;
-}
-
-static inline void *MemSet(void *dest, int ch, unsigned int count) {
-    char *d = (char *)dest;
-
-    for (unsigned int i = 0; i < count; i++) {
-        d[i] = (unsigned char)ch;
-    }
-
-    return dest;
-}
 
 static inline double PowerD (double x, int y)
 {
@@ -192,7 +94,7 @@ static inline long long StrToInt(const char *str, int bufSize, int base) {
     long long result = 0;
     while (i++ < bufSize && *p != '\0') {
         for (int j = 0; j < base; j++) {
-            if (ToUpper(*p) == "0123456789ABCDEF"[j]) {
+            if (toupper(*p) == "0123456789ABCDEF"[j]) {
                 result = result * base + j;
                 break;
             }
@@ -213,7 +115,7 @@ static inline int FloatToStr(char *buf, int bufSize, float n, int round) {
 
     long long iPart = (long long)n;
     IntToStr(p, bufSize, iPart, (n < 0), 10); // Always use base 10?
-    while (IsDigit(*++p)); // Skip to end of added data
+    while (isdigit(*++p)); // Skip to end of added data
     double fPart = n - (double)iPart;
 
     if (round != 0) {
@@ -240,7 +142,7 @@ static inline double StrToFloat(const char *buf, int bufSize)
     }
 
     int i = 0;
-    while (i < bufSize && IsDigit(p[i])) {
+    while (i < bufSize && isdigit(p[i])) {
         i++;
     }
 
@@ -253,7 +155,7 @@ static inline double StrToFloat(const char *buf, int bufSize)
     p++;
 
     int j = 0;
-    while (j < bufSize && IsDigit(p[j])) {
+    while (j < bufSize && isdigit(p[j])) {
         j++;
     }
 
