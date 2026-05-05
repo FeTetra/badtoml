@@ -34,11 +34,9 @@ int main(void) {
     "bool = true\n"
     "literal = \'literal text\'\0"; // There is currently no difference between strings and literals 
 
-
-    int result = TOMLParseFileBuf(testFile, strlen(testFile), entries, 8);
-    if (result == TOML_PARSE_FAIL) {
-        printf("Parse failed.\n");
-    }
+    struct Lexer l = MakeLexer(testFile);
+    TOMLEntry entries[8];
+    TOMLReadBuffer(&l, entries, 8);
 
     char *text;
     int integer;
