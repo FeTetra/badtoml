@@ -4,7 +4,7 @@
 TOMLErrno TOMLApplyEntriesToKeyMap(TOMLEntry *entries, size_t entryCount, TOMLKeyMap *keyMap, size_t mapCount) {
     for (int i = 0; i < mapCount; i++) {
         for (int j = 0; j < entryCount; j++) {
-            if (strncmp(entries[i].section, keyMap[i].section, strlen(keyMap[i].section)) != 0) {
+            if (strncmp(entries[j].section, keyMap[i].section, strlen(keyMap[i].section)) != 0) {
                 continue;
             }
             if (strncmp(entries[j].key, keyMap[i].key, strlen(keyMap[i].key)) != 0) {
@@ -35,6 +35,8 @@ TOMLErrno TOMLApplyEntriesToKeyMap(TOMLEntry *entries, size_t entryCount, TOMLKe
                 case TOML_TYPE_INVALID:
                     break;
             }
+            
+            break;
         }
     }
 
