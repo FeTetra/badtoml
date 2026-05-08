@@ -22,7 +22,6 @@ using it looks something like this:
 #include "keymap.h"
 
 int main(void) {
-    struct TOMLEntry entries[8];
     char *testFile =
     "[test]\n"
     "string = \"text\"\n"
@@ -35,7 +34,7 @@ int main(void) {
     "literal = \'literal text\'\0"; // There is currently no difference between strings and literals 
 
     struct Lexer l = MakeLexer(testFile);
-    TOMLEntry entries[8];
+    struct TOMLEntry entries[8];
     TOMLReadBuffer(&l, entries, 8);
 
     char *text;
