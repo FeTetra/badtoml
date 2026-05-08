@@ -1,4 +1,5 @@
 #include "toml.h"
+#include "tokenizer.h"
 
 /* Deserialization */
 
@@ -59,6 +60,8 @@ void TOMLCopyValue(Token *t, TOMLEntry *entry) {
 
 TOMLErrno TOMLReadLine(Lexer *l, TOMLEntry *entry) {
     Token current = NextToken(l);
+    while (current.type == TOKEN_NEWLINE) current = NextToken(l); // Skip extra newlines differently
+
     TOMLErrno result = TOML_ERRNO_INVALID;
 
     if (result == TOML_ERRNO_INVALID && current.type == TOKEN_EOF) 
