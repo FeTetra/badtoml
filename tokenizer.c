@@ -43,7 +43,7 @@ Token MakeToken(Lexer *l, unsigned int type) {
     return t;
 }
 
-Token MakeTokenInt(Lexer *l, unsigned int intType) {
+Token MakeTokenInt(Lexer *l, TokenType intType) {
     Token t;
     t.type = TOKEN_INT;
     t.intType = intType;
