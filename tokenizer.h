@@ -66,7 +66,7 @@ Lexer MakeLexer(char *buf);
 
 /* struct Token constructors */
 
-Token MakeToken(Lexer *l, TokenType type);
+Token MakeToken(Lexer *l, unsigned int type);
 
 Token ErrorToken(Lexer *l, const char *msg);
 
